@@ -1,0 +1,73 @@
+# XcodeGen Project Configuration
+# This file defines the SIV Xcode project
+# Run: xcodegen generate (or make setup)
+
+name: SIV
+
+options:
+  bundleIdPrefix: com.yourname
+  deploymentTarget:
+    macOS: "13.0"
+  developmentLanguage: en
+
+settings:
+  base:
+    PRODUCT_NAME: SIV
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: 5.9
+    MACOSX_DEPLOYMENT_TARGET: 13.0
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "-"
+    COMBINE_HIDPI_IMAGES: YES
+
+targets:
+  SIV:
+    type: application
+    platform: macOS
+    sources:
+      - SIV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.SIV
+        INFOPLIST_FILE: SIV/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: SIV
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.graphics-design
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2026"
+        INFOPLIST_KEY_NSMainStoryboardFile: ""
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+    dependencies: []
+    
+  SIVTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - SIVTests
+    dependencies:
+      - target: SIV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.SIVTests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  SIV:
+    build:
+      targets:
+        SIV: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SIVTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
