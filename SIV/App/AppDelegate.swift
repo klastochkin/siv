@@ -23,7 +23,3 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-extension Notification.Name {
-    static let openFile = Notification.Name("openFile")
-}
-

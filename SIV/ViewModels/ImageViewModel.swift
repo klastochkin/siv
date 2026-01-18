@@ -17,12 +17,7 @@ class ImageViewModel: ObservableObject {
     
     // MARK: - Private Properties
     
-    private var availableImages: [ImageFile] = []
-    private var currentIndex: Int = 0
-    
     private let imageLoader = ImageLoader()
-    private let fileNavigator = FileNavigator()
-    private let imageCache = ImageCache()
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -56,14 +51,6 @@ class ImageViewModel: ObservableObject {
             .sink { [weak self] _ in self?.toggleInfoBar() }
             .store(in: &cancellables)
         
-        NotificationCenter.default.publisher(for: .nextImage)
-            .sink { [weak self] _ in self?.navigateNext() }
-            .store(in: &cancellables)
-        
-        NotificationCenter.default.publisher(for: .previousImage)
-            .sink { [weak self] _ in self?.navigatePrevious() }
-            .store(in: &cancellables)
-        
         NotificationCenter.default.publisher(for: .openFile)
             .sink { [weak self] notification in
                 if let url = notification.userInfo?["url"] as? URL {
@@ -86,25 +73,10 @@ class ImageViewModel: ObservableObject {
             // Create ImageFile
             let imageFile = try ImageFile(url: url)
             
-            // Get all images in the folder
-            let images = try fileNavigator.getImagesInFolder(of: url)
-            availableImages = images
-            
-            // Find current index
-            if let index = fileNavigator.indexOf(imageFile, in: images) {
-                currentIndex = index
-            }
-            
             // Update state
             currentImage = image
             currentFile = imageFile
             zoomState.reset()
-            
-            // Cache the image
-            imageCache.set(image, for: url, size: imageFile.fileSize)
-            
-            // Preload adjacent images
-            preloadAdjacentImages()
             
         } catch let error as ImageLoader.ImageLoadError {
             handleImageLoadError(error)
@@ -113,71 +85,6 @@ class ImageViewModel: ObservableObject {
         }
         
         isLoading = false
-    }
-    
-    // MARK: - Navigation
-    
-    func navigateNext() {
-        guard let current = currentFile else { return }
-        guard let next = fileNavigator.nextImage(after: current, in: availableImages) else { return }
-        
-        Task {
-            await loadImageFile(next)
-        }
-    }
-    
-    func navigatePrevious() {
-        guard let current = currentFile else { return }
-        guard let previous = fileNavigator.previousImage(before: current, in: availableImages) else { return }
-        
-        Task {
-            await loadImageFile(previous)
-        }
-    }
-    
-    private func loadImageFile(_ imageFile: ImageFile) async {
-        // Check cache first
-        if let cachedImage = imageCache.get(imageFile.url) {
-            currentImage = cachedImage
-            currentFile = imageFile
-            zoomState.reset()
-            
-            if let index = fileNavigator.indexOf(imageFile, in: availableImages) {
-                currentIndex = index
-            }
-            
-            preloadAdjacentImages()
-            return
-        }
-        
-        // Load from disk
-        await openImage(at: imageFile.url)
-    }
-    
-    private func preloadAdjacentImages() {
-        guard let current = currentFile else { return }
-        
-        Task.detached(priority: .background) { [weak self] in
-            guard let self = self else { return }
-            
-            // Preload next
-            if let next = await self.fileNavigator.nextImage(after: current, in: self.availableImages) {
-                if await self.imageCache.get(next.url) == nil {
-                    if let image = try? await self.imageLoader.loadImage(from: next.url) {
-                        await self.imageCache.set(image, for: next.url, size: next.fileSize)
-                    }
-                }
-            }
-            
-            // Preload previous
-            if let previous = await self.fileNavigator.previousImage(before: current, in: self.availableImages) {
-                if await self.imageCache.get(previous.url) == nil {
-                    if let image = try? await self.imageLoader.loadImage(from: previous.url) {
-                        await self.imageCache.set(image, for: previous.url, size: previous.fileSize)
-                    }
-                }
-            }
-        }
     }
     
     // MARK: - Zoom Controls

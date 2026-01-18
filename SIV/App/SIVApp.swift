@@ -46,18 +46,6 @@ struct SIVApp: App {
                     NotificationCenter.default.post(name: .toggleInfoBar, object: nil)
                 }
                 .keyboardShortcut("i", modifiers: [])
-                
-                Divider()
-                
-                Button("Next Image") {
-                    NotificationCenter.default.post(name: .nextImage, object: nil)
-                }
-                .keyboardShortcut(.rightArrow, modifiers: [])
-                
-                Button("Previous Image") {
-                    NotificationCenter.default.post(name: .previousImage, object: nil)
-                }
-                .keyboardShortcut(.leftArrow, modifiers: [])
             }
         }
     }
@@ -89,7 +77,6 @@ extension Notification.Name {
     static let actualSize = Notification.Name("actualSize")
     static let fitToWindow = Notification.Name("fitToWindow")
     static let toggleInfoBar = Notification.Name("toggleInfoBar")
-    static let nextImage = Notification.Name("nextImage")
-    static let previousImage = Notification.Name("previousImage")
+    static let openFile = Notification.Name("openFile")
 }
 

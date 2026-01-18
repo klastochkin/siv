@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Main window view for the image viewer
 struct ImageViewerWindow: View {
@@ -53,6 +54,24 @@ struct ImageViewerWindow: View {
         .frame(minWidth: 400, minHeight: 300)
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             handleDrop(providers: providers)
+        }
+        .focusable()
+        .onMoveCommand { direction in
+            // Use arrow keys to pan the image when zoomed
+            let panAmount: CGFloat = 50  // pixels to move per key press
+            
+            switch direction {
+            case .up:
+                viewModel.pan(by: CGSize(width: 0, height: panAmount))
+            case .down:
+                viewModel.pan(by: CGSize(width: 0, height: -panAmount))
+            case .left:
+                viewModel.pan(by: CGSize(width: panAmount, height: 0))
+            case .right:
+                viewModel.pan(by: CGSize(width: -panAmount, height: 0))
+            @unknown default:
+                break
+            }
         }
     }
     
