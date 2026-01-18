@@ -10,8 +10,6 @@
 		3E6A844CECC045CA7B540671 /* ImageCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9674BDB0E5A066BD4A6B8956 /* ImageCanvas.swift */; };
 		59D8FDC13EAF9591C31338EB /* ZoomStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE42F1A9125CD53686B1E51 /* ZoomStateTests.swift */; };
 		64179274DCED271C2AF0284C /* ZoomState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88089C71EC8706841A5FD3D /* ZoomState.swift */; };
-		805B1611C2E07A290574FFE4 /* FileNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880D51AFDE35476E6156C867 /* FileNavigator.swift */; };
-		89D5AD401C60ABCB1E19E326 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3421B7F7251CAB3C793775A9 /* ImageCache.swift */; };
 		9FFEB5D0B04AFDF89892E455 /* ImageFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67B2A111978AA8DCF8B5464C /* ImageFile.swift */; };
 		ABFECBD3D78B277D9B6DAC9B /* ImageViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F70C7228D0E92197450A3A2 /* ImageViewModel.swift */; };
 		D7D2AFCE0CA7A6AD86E2DD91 /* SIVApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D2129C3A7323C08457BFF7 /* SIVApp.swift */; };
@@ -39,14 +37,12 @@
 		2CE7C37301FF70C6A0EC2BAF /* ImageViewerWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewerWindow.swift; sourceTree = "<group>"; };
 		2E88B341E96AB5F1318751F3 /* ImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLoader.swift; sourceTree = "<group>"; };
 		2FE42F1A9125CD53686B1E51 /* ZoomStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomStateTests.swift; sourceTree = "<group>"; };
-		3421B7F7251CAB3C793775A9 /* ImageCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCache.swift; sourceTree = "<group>"; };
 		3F70C7228D0E92197450A3A2 /* ImageViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewModel.swift; sourceTree = "<group>"; };
 		67B2A111978AA8DCF8B5464C /* ImageFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageFile.swift; sourceTree = "<group>"; };
 		6E1F3D50E3D2351ED9139BF7 /* FileNavigatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNavigatorTests.swift; sourceTree = "<group>"; };
 		733E155DCC94B85D6B569130 /* SIVTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SIVTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A7C066BDF8564E7DA9D8309 /* ImageLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLoaderTests.swift; sourceTree = "<group>"; };
 		7C05A3CD3AC617D108E96B62 /* InfoBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoBar.swift; sourceTree = "<group>"; };
-		880D51AFDE35476E6156C867 /* FileNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNavigator.swift; sourceTree = "<group>"; };
 		9674BDB0E5A066BD4A6B8956 /* ImageCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCanvas.swift; sourceTree = "<group>"; };
 		970173D2A1E97793CE0D85E4 /* SIV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SIV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B88089C71EC8706841A5FD3D /* ZoomState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomState.swift; sourceTree = "<group>"; };
@@ -78,8 +74,6 @@
 		210B76B89E4D4DC1B3CE658F /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				880D51AFDE35476E6156C867 /* FileNavigator.swift */,
-				3421B7F7251CAB3C793775A9 /* ImageCache.swift */,
 				2E88B341E96AB5F1318751F3 /* ImageLoader.swift */,
 			);
 			path = Services;
@@ -233,9 +227,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DEF79EBD147F9F01EC944250 /* AppDelegate.swift in Sources */,
-				805B1611C2E07A290574FFE4 /* FileNavigator.swift in Sources */,
 				ECB28439D8E556E084C596BD /* FileSize+Extensions.swift in Sources */,
-				89D5AD401C60ABCB1E19E326 /* ImageCache.swift in Sources */,
 				3E6A844CECC045CA7B540671 /* ImageCanvas.swift in Sources */,
 				9FFEB5D0B04AFDF89892E455 /* ImageFile.swift in Sources */,
 				FB0BB14868CB54E49CA405CD /* ImageLoader.swift in Sources */,

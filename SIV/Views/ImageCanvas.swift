@@ -48,6 +48,8 @@ struct ImageCanvas: View {
     @State private var isMagnifying = false
     @State private var magnificationAnchor: CGPoint = .zero
     @State private var lastDisplayScale: CGFloat = 1.0
+    @State private var imageDisplaySize: CGSize = .zero
+    @State private var windowSize: CGSize = .zero
     
     var body: some View {
         GeometryReader { geometry in
@@ -62,9 +64,11 @@ struct ImageCanvas: View {
                         height: imageSize.height * displayScale
                     )
                     
-                    // Track the actual displayed scale for gesture handling
+                    // Track the actual displayed scale and size for gesture handling
                     let _ = {
                         lastDisplayScale = displayScale
+                        imageDisplaySize = displaySize
+                        windowSize = geometry.size
                     }()
                     
                     Image(nsImage: image)
@@ -81,7 +85,7 @@ struct ImageCanvas: View {
                                 }
                         )
                         .simultaneousGesture(
-                            DragGesture(minimumDistance: 0)
+                            DragGesture(minimumDistance: 5)
                                 .onChanged { value in
                                     handleDragChanged(value)
                                 }
@@ -94,7 +98,7 @@ struct ImageCanvas: View {
                         }
                         .onContinuousHover { phase in
                             switch phase {
-                            case .active(let location):
+                            case .active(_):
                                 // Could show cursor info here
                                 break
                             case .ended:
@@ -171,8 +175,9 @@ struct ImageCanvas: View {
     private func handleMagnificationChanged(_ value: MagnificationGesture.Value, in geometry: GeometryProxy) {
         // Apply magnification directly to state for instant feedback
         if !isMagnifying {
-            // First time - capture the center point
+            // First time - use center of visible area as zoom anchor
             isMagnifying = true
+            // Zoom around the center of the window for stable, predictable behavior
             magnificationAnchor = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
         }
         
@@ -186,14 +191,30 @@ struct ImageCanvas: View {
         let dampening: CGFloat = 0.2
         let adjustedMagnitude = 1.0 + (value.magnitude - 1.0) * dampening
         
-        // If there was any drag during magnification, apply it first
-        if isDragging {
-            viewModel.pan(by: dragOffset)
-            isDragging = false
+        // Get the current effective scale before we change mode
+        guard let image = viewModel.currentImage else {
+            isMagnifying = false
+            magnificationScale = 1.0
+            dragOffset = .zero
+            return
         }
         
-        // Apply zoom to ViewModel (this will adjust offset to keep anchor point)
-        viewModel.zoom(by: adjustedMagnitude, around: magnificationAnchor)
+        let currentEffectiveScale = effectiveScale(for: image, in: geometry.size)
+        
+        // Calculate new scale based on current effective scale (not zoomState.scale)
+        var newScale = currentEffectiveScale * adjustedMagnitude
+        newScale = min(max(newScale, ZoomState.minScale), ZoomState.maxScale)
+        
+        // Apply the scale change
+        viewModel.zoomState.scale = newScale
+        viewModel.zoomState.mode = .custom
+        
+        // If there was any drag during magnification, apply it
+        if isDragging {
+            viewModel.zoomState.offset.width += dragOffset.width
+            viewModel.zoomState.offset.height += dragOffset.height
+            isDragging = false
+        }
         
         // Reset magnification state
         isMagnifying = false
@@ -222,13 +243,9 @@ struct ImageCanvas: View {
     }
     
     private func handleDragChanged(_ value: DragGesture.Value) {
-        // Allow dragging when zoomed in OR when image has been moved
-        // Pan is allowed if the displayed image is larger than 100% OR if there's existing offset
-        let hasOffset = viewModel.zoomState.offset != .zero
-        if lastDisplayScale > 1.0 || hasOffset {
-            isDragging = true
-            dragOffset = value.translation
-        }
+        // Always allow panning - let user move image freely
+        isDragging = true
+        dragOffset = value.translation
     }
     
     private func handleDragEnded(_ value: DragGesture.Value) {
