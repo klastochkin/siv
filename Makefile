@@ -1,152 +1,88 @@
-# Makefile for SIV - Simple Image Viewer
-# For experienced engineers new to macOS development
-
-.PHONY: help setup build run clean test open debug release install launch
+.PHONY: all build clean test run install xcode help app run-app
 
 # Default target
-help:
-	@echo "SIV - Simple Image Viewer"
-	@echo ""
-	@echo "Available targets:"
-	@echo "  make setup      - Initial project setup (creates Xcode project)"
-	@echo "  make build      - Build the app (debug mode)"
-	@echo "  make run        - Build and run the app"
-	@echo "  make launch     - Launch already-built app (no rebuild)"
-	@echo "  make test       - Run unit tests"
-	@echo "  make clean      - Clean build artifacts"
-	@echo "  make open       - Open project in Xcode (for GUI debugging)"
-	@echo "  make release    - Build release version"
-	@echo "  make install    - Install to /Applications"
-	@echo "  make debug      - Build and attach debugger (via Xcode)"
-	@echo ""
-	@echo "Quick start:"
-	@echo "  1. make setup      # One-time setup"
-	@echo "  2. make run        # Build and run"
-	@echo "  3. make open       # Open in Xcode for debugging"
+all: build
 
-# Check if Xcode is installed
-check-xcode:
-	@which xcodebuild > /dev/null || (echo "Error: Xcode not found. Install from App Store." && exit 1)
-	@echo "✓ Xcode found"
+# Build the application (executable only)
+build:
+	@echo "Building SIV..."
+	swift build -c release
 
-# Initial setup - creates Xcode project
-setup: check-xcode
-	@echo "Setting up SIV project..."
-	@if [ ! -f "SIV.xcodeproj/project.pbxproj" ]; then \
-		echo "Creating Xcode project using swift package..."; \
-		swift package init --type executable --name SIV 2>/dev/null || true; \
-		echo "Generating Xcode project..."; \
-		xcodegen generate || swift package generate-xcodeproj || (echo "Run: ./scripts/create_xcode_project.sh" && exit 1); \
-	else \
-		echo "✓ Xcode project already exists"; \
-	fi
-	@echo ""
-	@echo "✓ Setup complete!"
-	@echo "  Next: make run"
+# Build for debugging
+debug:
+	@echo "Building SIV (debug)..."
+	swift build
 
-# Build debug version
-build: check-xcode
-	@echo "Building SIV (Debug)..."
-	@if [ -f "SIV.xcodeproj/project.pbxproj" ]; then \
-		xcodebuild -project SIV.xcodeproj -scheme SIV -configuration Debug build; \
-	else \
-		echo "Error: Run 'make setup' first"; \
-		exit 1; \
-	fi
-
-# Build and run
-run: check-xcode
-	@echo "Building and running SIV..."
-	@if [ -f "SIV.xcodeproj/project.pbxproj" ]; then \
-		xcodebuild -project SIV.xcodeproj -scheme SIV -configuration Debug build && \
-		APP_PATH=$$(find ~/Library/Developer/Xcode/DerivedData -name "SIV.app" -type d 2>/dev/null | head -1) && \
-		if [ -n "$$APP_PATH" ]; then \
-			echo "Launching $$APP_PATH"; \
-			open "$$APP_PATH"; \
-		else \
-			echo "Error: Could not find SIV.app"; \
-			exit 1; \
-		fi \
-	else \
-		echo "Error: Run 'make setup' first"; \
-		exit 1; \
-	fi
-
-# Launch already-built app (no rebuild)
-launch:
-	@echo "Launching SIV..."
-	@APP_PATH=$$(find ~/Library/Developer/Xcode/DerivedData -name "SIV.app" -type d 2>/dev/null | head -1) && \
-	if [ -n "$$APP_PATH" ]; then \
-		echo "Found: $$APP_PATH"; \
-		open "$$APP_PATH"; \
-	else \
-		echo "Error: App not built yet. Run 'make build' first"; \
-		exit 1; \
-	fi
-
-# Run tests
-test: check-xcode
-	@echo "Running tests..."
-	@if [ -f "SIV.xcodeproj/project.pbxproj" ]; then \
-		xcodebuild test -project SIV.xcodeproj -scheme SIV -destination 'platform=macOS'; \
-	else \
-		echo "Error: Run 'make setup' first"; \
-		exit 1; \
-	fi
+# Build app bundle (.app)
+app:
+	@echo "Building SIV.app bundle..."
+	@./scripts/build_app_bundle.sh
 
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	@rm -rf build/
-	@rm -rf DerivedData/
-	@rm -rf .build/
-	@if [ -f "SIV.xcodeproj/project.pbxproj" ]; then \
-		xcodebuild clean -project SIV.xcodeproj -scheme SIV 2>/dev/null || true; \
-	fi
-	@echo "✓ Clean complete"
+	swift package clean
+	rm -rf .build
+	rm -rf SIV.xcodeproj
 
-# Open in Xcode (best for debugging)
-open: check-xcode
-	@if [ -f "SIV.xcodeproj/project.pbxproj" ]; then \
-		echo "Opening in Xcode..."; \
-		open SIV.xcodeproj; \
-	else \
-		echo "Error: Run 'make setup' first"; \
-		exit 1; \
-	fi
+# Run tests
+test:
+	@echo "Running tests..."
+	swift test
 
-# Build and debug in Xcode
-debug: check-xcode
-	@echo "Opening in Xcode for debugging..."
-	@echo "Once Xcode opens, press ⌘R to run with debugger attached"
-	@$(MAKE) open
+# Run the application (executable)
+run:
+	@echo "Running SIV..."
+	swift run
 
-# Build release version
-release: check-xcode
-	@echo "Building SIV (Release)..."
-	@if [ -f "SIV.xcodeproj/project.pbxproj" ]; then \
-		xcodebuild -project SIV.xcodeproj -scheme SIV -configuration Release build; \
-	else \
-		echo "Error: Run 'make setup' first"; \
-		exit 1; \
-	fi
-	@echo "✓ Release build complete"
-	@echo "  App location: build/Release/SIV.app"
+# Build and run app bundle (standalone app with menu bar)
+run-app: app
+	@echo "Launching SIV.app..."
+	@open .build/release/SIV.app
 
 # Install to /Applications
-install: release
+install: app
 	@echo "Installing SIV to /Applications..."
-	@cp -R build/Release/SIV.app /Applications/
-	@echo "✓ Installed to /Applications/SIV.app"
+	@if [ -d ".build/release/SIV.app" ]; then \
+		cp -R .build/release/SIV.app /Applications/; \
+		echo "✅ SIV installed to /Applications/SIV.app"; \
+		echo ""; \
+		echo "You can now:"; \
+		echo "  - Launch from Applications folder"; \
+		echo "  - Use Cmd+Tab to switch to it"; \
+		echo "  - See the app's own menu bar"; \
+	else \
+		echo "❌ Error: SIV.app not found in .build/release/"; \
+		echo "Run 'make app' first to build the app bundle."; \
+		exit 1; \
+	fi
 
-# Show project info
-info:
-	@echo "Project: SIV - Simple Image Viewer"
-	@echo "Language: Swift 5.9+"
-	@echo "Platform: macOS 13.0+"
-	@echo "Architecture: Universal (Intel + Apple Silicon)"
+# Generate Xcode project
+xcode:
+	@echo "Generating Xcode project..."
+	swift package generate-xcodeproj
+	@echo "Opening Xcode project..."
+	open SIV.xcodeproj
+
+# Show help
+help:
+	@echo "SIV - Simple Image Viewer"
 	@echo ""
-	@echo "Project structure:"
-	@find SIV -name "*.swift" | head -10
-	@echo "..."
-
+	@echo "Available targets:"
+	@echo "  make build    - Build release executable"
+	@echo "  make debug    - Build debug executable"
+	@echo "  make app      - Build app bundle (.app) - RECOMMENDED"
+	@echo "  make run      - Run executable (no menu bar)"
+	@echo "  make run-app  - Build and run app bundle (standalone app)"
+	@echo "  make install  - Build app bundle and install to /Applications"
+	@echo "  make clean    - Clean build artifacts"
+	@echo "  make test     - Run unit tests"
+	@echo "  make xcode    - Generate and open Xcode project"
+	@echo "  make help     - Show this help message"
+	@echo ""
+	@echo "To run as a normal macOS app with menu bar:"
+	@echo "  make run-app"
+	@echo ""
+	@echo "Or build once and run manually:"
+	@echo "  make app"
+	@echo "  open .build/release/SIV.app"

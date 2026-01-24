@@ -1,66 +1,66 @@
 # Product Requirements - SIV (Simple Image Viewer)
 
-## Phase 1 - Single Image Viewer (MVP)
+### PHASE 1
 
+This is simple image viewing/navigating application for Mac OS used for learning of devlopment of apps with AI assistance.
+
+## Application structure
+
+Application windows contains 2 main views: Image View and Album View. 
+They are behaving as 2 seaparte views, the do not overlap. 
+Think of it as File Edit View of IDE (Image View) and Project Structure View of IDE (Album View).
+User can toggle Views on/off using Menu or Keyboard shortcuts.
+User can resize Views relatively to each other inside app window.
+Only one view is active at any moment of time, use can switch them using TAB key or clicking a mouse/touchpad.
+When the view is active, all keyboard events (arrow keys, etc. are going into that view first).
+Some key compbinations, are common for app. For example, Cmd-1 combination is rescaling image to its real size, and it's always directed to the image view. At the same time, Arrow Keys have different meaning in both Album and Image View and they are handled in the active view only.
+Application Menu has 2 sub-menus: Image and Album related to the corresponding view.
+
+# Image Vew
+
+Image View is view where current image is rendered for viewing.
 This version supports viewing a single image: displaying, scaling, and panning around zoomed images.
 
 ### File Operations
-- [x] Open image files (JPEG, PNG, HEIF) - **DONE**
-- [x] Drag & drop support - **DONE**
-- [x] Keyboard shortcut: Cmd+O - **DONE** (NSOpenPanel)
+- Open image files (JPEG, PNG, HEIF) 
+- Drag & drop support 
+- Keyboard shortcut: Cmd+O 
 
 ### Image Display
-- [x] Display image in window - **DONE**
-- [x] Center image, maintain aspect ratio - **DONE**
-- [x] Fit to window by default - **DONE** (scales up small images, down large)
-- [x] Support light/dark mode - **DONE**
+- Display image in window
+- Center image, maintain aspect ratio 
+- Fit to window by default (scales up small images, down large)
 
 ### Zoom & Pan
-- [x] Scroll wheel zoom - **DONE** (0.001 sensitivity)
-- [x] Trackpad pinch gesture - **DONE** (0.2 dampening, smooth)
-- [x] Keyboard shortcuts (Cmd+/-, Cmd+0, Cmd+1) - **DONE**
-- [x] Zoom range: 10% to 1600% - **DONE** (hard limits enforced)
-- [x] Pan with arrow keys (↑↓←→) - **DONE** (50px per key press)
-- [x] Pan with 2-finger drag on trackpad - **DONE**
-- [x] Pan enabled when image larger than window - **DONE**
+- Scroll wheel zoom (0.001 sensitivity)
+- Trackpad pinch gesture (0.2 dampening, smooth)
+- Keyboard shortcuts (Cmd+/-, Cmd+0, Cmd+1)
+- Zoom range: 10% to 1600% (hard limits enforced)
+- Pan with arrow keys (↑↓←→) (50px per key press)
+- Pan with 2-finger drag on trackpad 
+- Pan enabled when image larger than window 
 
-### Navigation Between Images
-- [ ] Navigate to next/previous image - **NOT IN PHASE 1**
-  - Note: Navigation is a Phase 2 feature (albums)
-  - Future: Use Cmd+←/Cmd+→ or menu items for navigation
-- [ ] Space bar for next image - **NOT IN PHASE 1**
-- [ ] Auto-scan folder for all images - **NOT IN PHASE 1**
-- [ ] Wrap around (last → first) - **NOT IN PHASE 1**
 
 ### Image Information
-- [x] Show filename, resolution, file size - **DONE**
-- [x] Show current zoom level - **DONE** (accurate percentage)
-- [x] Toggle info bar with "I" key - **DONE**
-- [x] Bottom overlay bar (non-intrusive) - **DONE**
+- Show filename, resolution, file size 
+- Show current zoom level (accurate percentage)
+- Bottom overlay bar (non-intrusive)
 
 ### Window Management
-- [x] Minimum window size: 400x300 - **DONE**
-- [x] Multiple windows support - **DONE**
-- [x] Standard macOS window controls - **DONE**
+- Minimum window size: 400x300
+- Standard macOS window controls
 
-### Error Handling
-- [x] Graceful handling of corrupted files - **DONE** (basic)
-- [x] Error messages for unsupported formats - **DONE**
-- [x] Permission denied errors - **DONE**
-- [x] File not found errors - **DONE**
 
-## Phase 2 - Picture Albums (MVP)
+- Picture Albums (MVP)
 
-### Picture Album requirements
-
-This phase introduces Picture Albums and image navigation. Phase 2 supports ONE single album ("default").
+This chapter introduces Picture Albums and image navigation. Phase 2 supports ONE single album ("default").
 The Picture Album is represented internally as a list of files. The files are not moved when added to/removed from album, only list of files is modified.
 Album is stored in file, it's json formatted file.
 Album files has extension .sivalb
-Default album is the only album supported in phase 2. It's stored at: `~/Library/Application Support/SIV/default.sivalb`
+Default album is the only album supported in this phase. It's stored at: `~/Library/Application Support/SIV/default.sivalb`
+
 
 **Album View:**
-- Album is displayed in the view inside SIV window
 - Toggle between Album View and Image View via menu: View → Toggle Album/Image View
 - Album View supports 2 representations:
   - Thumbnails (similar to macOS Icon view)

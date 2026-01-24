@@ -1,400 +1,109 @@
-# 🚀 Quick Start - For Engineers New to macOS
+# Quick Start Guide
 
-You're an experienced engineer but new to macOS/Swift. Here's everything you need.
+## Installation
 
----
+1. **Clone and Build**
+   ```bash
+   cd /path/to/siv
+   make build
+   ```
 
-## ⚡ TL;DR - Get Running in 2 Minutes
+2. **Run the Application**
+   ```bash
+   swift run
+   ```
 
-```bash
-# 1. One-time setup (creates Xcode project)
-make setup
+## First Use
 
-# 2. Build and run
-make run
+### Opening Images
 
-# 3. Open in Xcode for debugging
-make open
-# Then press ⌘R in Xcode
-```
+1. **Via Menu**: File → Open Image... (or Cmd+O)
+2. **Drag & Drop**: Drag an image file into the Image View
 
-That's it! 🎉
+### Working with Albums
 
----
+1. **Add Images to Album**: 
+   - File → Add to Album... (or Cmd+A while viewing an image)
+   - Or drag images into the Album View
 
-## 🎯 What's Different About macOS Development
+2. **Navigate Images**:
+   - Click an image in the Album View to display it
+   - Use arrow keys to move between images
+   - Press Space to go to next image
 
-### Quick Translation Guide
+3. **View Modes**:
+   - Toggle between List and Thumbnails using the segmented control in the Album View
 
-| You Know | macOS Equivalent |
-|----------|------------------|
-| `gcc` / `make` | `xcodebuild` |
-| `.exe` / binary | `.app` bundle (folder) |
-| Visual Studio | Xcode |
-| GDB | LLDB |
-| `./program` | `open Program.app` |
-| Solution file (.sln) | Project file (.xcodeproj) |
+### Zoom and Pan
 
-### Key Concepts
+**Zoom In/Out**:
+- Scroll wheel: Natural scrolling with fine control
+- Trackpad pinch: Two-finger pinch gesture
+- Keyboard: Cmd++ / Cmd+-
 
-1. **No traditional executables**: Apps are `.app` bundles (folders disguised as files)
-2. **Xcode is standard**: Like Visual Studio for Windows
-3. **SwiftUI = Declarative UI**: Think React/Flutter, not imperative UI
-4. **LLDB debugger**: GDB-like, but for macOS
+**Reset Zoom**:
+- Cmd+0: Fit to window
+- Cmd+1: Actual size (100%)
 
----
+**Pan Around**:
+- Arrow keys: Move in 50px increments
+- Trackpad: Two-finger drag
 
-## 📋 Prerequisites
+### View Management
 
-### Check if you have Xcode:
-```bash
-xcodebuild -version
-```
+- **Tab Key**: Switch focus between Album and Image views
+- **Menu → View → Toggle Album/Image View**: Show/hide Album panel
 
-**If not installed:**
-```bash
-# Option 1: Command line tools only (minimal)
-xcode-select --install
+## Common Workflows
 
-# Option 2: Full Xcode (recommended, 15GB)
-# Download from App Store: https://apps.apple.com/us/app/xcode/id497799835
-```
+### Quick Image Review
+1. Open SIV
+2. File → Add to Album... (select multiple images)
+3. Use arrow keys to navigate through images
+4. Use zoom controls to inspect details
 
----
+### Single Image Inspection
+1. Cmd+O to open an image
+2. Cmd+1 for actual size
+3. Use arrow keys to pan around
+4. Cmd+A to add to album if needed
 
-## 🛠️ Build Commands
+## Tips
 
-```bash
-# Show all available commands
-make help
+- The default album is automatically created at: `~/Library/Application Support/SIV/default.sivalb`
+- Missing files are marked with a red X - use the dialog to remove them
+- Album View and Image View respond differently to arrow keys based on focus
+- All album changes are saved automatically
 
-# Development workflow
-make setup          # One-time: Create Xcode project
-make build          # Compile (debug mode)
-make run            # Build and run the app
-make test           # Run unit tests
-make clean          # Remove build artifacts
+## Troubleshooting
 
-# Advanced
-make release        # Build optimized version
-make install        # Install to /Applications
-make open           # Open in Xcode (best for debugging)
-```
-
----
-
-## 🐛 Debugging Options
-
-### Option 1: Command Line (Quick & Dirty)
-
-```bash
-make build
-open build/Debug/SIV.app
-
-# Add print statements in code:
-print("Debug: \(someVariable)")
-# Output appears in Console.app or system logs
-```
-
-### Option 2: Xcode GUI (Recommended)
-
-```bash
-make open           # Opens Xcode
-```
-
-**In Xcode:**
-1. Click line numbers to set breakpoints (like Visual Studio)
-2. Press `⌘R` to run with debugger attached
-3. When stopped at breakpoint:
-   - Hover over variables to inspect
-   - Type `po variable` in debug console
-   - Step over: `F6`, Step into: `F7`, Continue: `⌃⌘Y`
-
-**Debug Console Commands:**
-```lldb
-(lldb) po viewModel.currentImage        # Print object
-(lldb) p viewModel.zoomState.scale      # Print value
-(lldb) expr scale = 2.0                 # Modify variable
-(lldb) bt                               # Backtrace (stack)
-(lldb) continue                         # Resume execution
-```
-
----
-
-## 📁 Understanding the Build Output
-
-```bash
-build/
-├── Debug/
-│   └── SIV.app/                # The "executable" (it's a folder!)
-│       ├── Contents/
-│       │   ├── MacOS/
-│       │   │   └── SIV         # Actual binary
-│       │   ├── Resources/      # Assets, images
-│       │   ├── Info.plist      # Metadata
-│       │   └── _CodeSignature/ # Apple security
-```
-
-**To run:**
-```bash
-open build/Debug/SIV.app       # ← Note: 'open', not './'
-```
-
----
-
-## 🔧 Manual Build (If Makefile Fails)
-
-```bash
-# Build
-xcodebuild \
-  -project SIV.xcodeproj \
-  -scheme SIV \
-  -configuration Debug \
-  build
-
-# Run
-open build/Debug/SIV.app
-
-# Test
-xcodebuild test \
-  -project SIV.xcodeproj \
-  -scheme SIV \
-  -destination 'platform=macOS'
-
-# Clean
-xcodebuild clean -project SIV.xcodeproj -scheme SIV
-rm -rf build/ DerivedData/
-```
-
----
-
-## 📝 Xcode Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `⌘R` | Build and Run |
-| `⌘B` | Build only |
-| `⌘.` | Stop running |
-| `⌘U` | Run tests |
-| `⌘K` | Clean build |
-| `⇧⌘Y` | Toggle debug console |
-| `⇧⌘O` | Open quickly (find file) |
-| `⌘/` | Comment/uncomment |
-| `⌃I` | Re-indent |
-| `⌘⇧F` | Find in project |
-
----
-
-## 🎓 Project Structure Explained
-
-```
-siv/
-├── Makefile                 ← Your familiar build tool
-├── project.yml              ← Xcodegen config (generates .xcodeproj)
-├── SIV.xcodeproj/           ← Xcode project (like .sln)
-│
-├── SIV/                     ← Source code
-│   ├── App/                 ← Entry point
-│   │   ├── SIVApp.swift    ← main() equivalent
-│   │   └── AppDelegate.swift
-│   ├── Views/               ← UI (SwiftUI)
-│   ├── ViewModels/          ← Business logic (MVVM)
-│   ├── Models/              ← Data structures
-│   ├── Services/            ← Utilities
-│   └── Info.plist           ← App metadata
-│
-├── SIVTests/                ← Unit tests
-│
-├── build/                   ← Build output (gitignored)
-│   ├── Debug/
-│   │   └── SIV.app         ← Runnable app
-│   └── Release/
-│
-└── docs/                    ← Documentation
-```
-
----
-
-## 🚨 Common Issues & Fixes
-
-### Issue: "xcodebuild: command not found"
-**Fix:**
-```bash
-xcode-select --install
-```
-
-### Issue: "No such module 'SwiftUI'"
-**Fix:**
+**App won't build?**
 ```bash
 make clean
 make build
-# Or in Xcode: Product → Clean Build Folder (⇧⌘K)
 ```
 
-### Issue: "Code signing failed"
-**Fix:** Open Xcode → Preferences → Accounts → Sign in with Apple ID (free)
+**Images not loading?**
+- Check that the image format is supported (JPEG, PNG, HEIF)
+- Verify file permissions
 
-### Issue: "Unable to run SIV.app"
-**Fix:**
+**Missing files in album?**
+- Click "Remove All Missing Files" when prompted
+- Or manually select and remove them
+
+## Development
+
+**Run Tests**:
 ```bash
-# Check if it was built
-ls -la build/Debug/SIV.app
-
-# Try running directly
-open build/Debug/SIV.app
-
-# If file not found, build first
-make build
-```
-
-### Issue: Can't see print() output
-**Fix:** 
-- In Xcode: View → Debug Area → Activate Console (⇧⌘Y)
-- Or use Console.app (system utility) to see all logs
-
----
-
-## 💡 Development Tips
-
-### 1. Edit in Your Favorite Editor
-
-```bash
-# Edit code in Cursor, VS Code, etc.
-cursor .          # or: code .
-
-# Build from terminal
-make build
-
-# Or use Xcode for debugging only
-make open
-```
-
-### 2. Quick Iteration
-
-```bash
-# Terminal 1: Keep running
-while true; do
-  make run
-  echo "Crashed or closed. Rebuilding in 2s..."
-  sleep 2
-done
-
-# Terminal 2: Edit code
-# Changes picked up on next iteration
-```
-
-### 3. View App While Coding
-
-```bash
-# Run app in background
-make run &
-
-# Now you can test drag & drop, keyboard shortcuts
-# while still using terminal
-```
-
-### 4. Testing Specific Features
-
-```bash
-# Create test images
-mkdir ~/test-images
-cp ~/Pictures/*.jpg ~/test-images/
-
-# Drag images onto SIV.app icon or window
-```
-
----
-
-## 📊 Verification Checklist
-
-```bash
-# ✓ Xcode installed?
-xcodebuild -version
-
-# ✓ Project created?
-ls SIV.xcodeproj/project.pbxproj
-
-# ✓ Builds successfully?
-make build
-
-# ✓ Tests pass?
 make test
-
-# ✓ App runs?
-make run
-# You should see a window open
-
-# ✓ Can open image?
-# Drag a JPEG onto the window
-# Should display the image
 ```
 
----
-
-## 🎯 Recommended Workflow
-
-**For You (Experienced Engineer):**
-
+**Generate Xcode Project**:
 ```bash
-# 1. Initial setup (once)
-make setup
+make xcode
+```
 
-# 2. Daily workflow
-#    - Edit code in your preferred editor (Cursor/VS Code)
-#    - Build from terminal: make build
-#    - Run from terminal: make run
-#    - Debug in Xcode when needed: make open
-
-# 3. Before committing
+**Clean Build**:
+```bash
 make clean
-make build
-make test
 ```
-
-**What Most macOS Devs Do:**
-- Live in Xcode 90% of the time
-- Use Xcode's integrated editor, debugger, profiler
-- Command line for automation/CI only
-
-**You Can Do Either!** The Makefile gives you both options.
-
----
-
-## 🔗 Quick Reference Links
-
-- **Swift Cheat Sheet**: https://www.hackingwithswift.com/quick-start/beginners
-- **SwiftUI Cheat Sheet**: https://fuckingswiftui.com/
-- **LLDB Commands**: https://lldb.llvm.org/use/map.html
-- **Xcode Shortcuts**: https://swifteducation.github.io/assets/pdfs/XcodeKeyboardShortcuts.pdf
-
----
-
-## 🎉 First Run Success Criteria
-
-After running `make run`, you should see:
-
-1. ✅ A window opens (800×600px)
-2. ✅ Shows "Open an image to get started"
-3. ✅ You can drag a JPEG onto it
-4. ✅ Image displays centered
-5. ✅ Bottom bar shows filename, dimensions, size
-6. ✅ Arrow keys navigate (if multiple images in folder)
-7. ✅ Scroll wheel zooms
-
-**If all ✅ = SUCCESS! You're running!** 🎊
-
----
-
-## 📞 Need More Help?
-
-1. `docs/getting-started-cli.md` - Detailed CLI guide
-2. `docs/setup-guide.md` - Manual Xcode setup
-3. `docs/quick-start.md` - Project overview
-4. `DELIVERABLES.md` - What was built
-
-Or just run: `make help`
-
----
-
-**You're ready to go! Start with `make run` and iterate from there.** 🚀
-
