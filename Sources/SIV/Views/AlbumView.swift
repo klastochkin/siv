@@ -43,22 +43,30 @@ struct AlbumView: View {
                     Text("No Images in Album")
                         .font(.title3)
                         .foregroundColor(.gray)
-                    Text("Drag & drop images or use the + button")
+                    Text("Drag & drop images here to add to album")
                         .font(.body)
                         .foregroundColor(.gray.opacity(0.7))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                    handleDrop(providers: providers)
+                    return true
+                }
             } else {
                 if viewModel.viewMode == .list {
                     listView
+                        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                            handleDrop(providers: providers)
+                            return true
+                        }
                 } else {
                     thumbnailView
+                        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                            handleDrop(providers: providers)
+                            return true
+                        }
                 }
             }
-        }
-        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-            handleDrop(providers: providers)
-            return true
         }
         .alert("Missing Files", isPresented: $viewModel.showMissingFilesDialog) {
             Button("Remove All Missing Files") {

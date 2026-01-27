@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 /// View mode for album display
 enum AlbumViewMode: String, CaseIterable {
@@ -15,9 +16,23 @@ class AlbumViewModel: ObservableObject {
     @Published var viewMode: AlbumViewMode = .list
     @Published var showMissingFilesDialog: Bool = false
     
+    private var cancellables = Set<AnyCancellable>()
+    
+    init() {
+        // Forward albumManager changes to this view model (async to avoid publishing during view update)
+        albumManager.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.objectWillChange.send()
+            }
+        }
+        .store(in: &cancellables)
+    }
+    
     /// Initialize and load default album
     func initialize() async {
+        print("🚀 AlbumViewModel: Initializing...")
         await albumManager.loadDefaultAlbum()
+        print("✅ AlbumViewModel: Loaded album with \(images.count) images")
         
         // Check for missing files and show dialog if needed
         if albumManager.hasMissingFiles {
@@ -37,7 +52,10 @@ class AlbumViewModel: ObservableObject {
     
     /// Add images to album
     func addImages(_ paths: [String]) async {
+        print("📸 AlbumViewModel: Adding \(paths.count) images to album")
         await albumManager.addImages(paths)
+        print("✅ AlbumViewModel: Album now has \(images.count) images")
+        print("📋 AlbumViewModel: Images: \(images.map { $0.fileName }.joined(separator: ", "))")
     }
     
     /// Add image to album
@@ -103,16 +121,23 @@ class AlbumViewModel: ObservableObject {
     
     /// Open file picker to add images
     func openFilePicker() {
+        print("📂 AlbumViewModel: openFilePicker called")
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.allowedContentTypes = [.jpeg, .png, .heic]
         
-        if panel.runModal() == .OK {
+        print("📂 AlbumViewModel: Running modal panel...")
+        let result = panel.runModal()
+        print("📂 AlbumViewModel: Panel result: \(result == .OK ? "OK" : "Cancel")")
+        
+        if result == .OK {
             let paths = panel.urls.map { $0.path }
+            print("📂 AlbumViewModel: Selected \(paths.count) files: \(paths)")
             Task {
                 await addImages(paths)
+                print("✅ AlbumViewModel: Images added to album")
             }
         }
     }

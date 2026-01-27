@@ -14,6 +14,16 @@ struct ImageCanvas: View {
             ZStack {
                 Color.black
                 
+                // Drop zone overlay - captures all drops (must be after Color.black so it's on top)
+                DropZoneView { urls in
+                    print("🎯 ImageCanvas: DropZoneView received \(urls.count) files")
+                    if let url = urls.first {
+                        let imageFile = ImageFile(path: url.path)
+                        viewModel.loadImage(from: imageFile)
+                    }
+                }
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                
                 if viewModel.isLoading {
                     ProgressView()
                         .scaleEffect(1.5)
@@ -69,7 +79,7 @@ struct ImageCanvas: View {
                         Text("No Image Loaded")
                             .font(.title2)
                             .foregroundColor(.gray)
-                        Text("Press Cmd+O to open an image")
+                        Text("Press Cmd+O to open an image or drag & drop here")
                             .font(.body)
                             .foregroundColor(.gray.opacity(0.7))
                     }
@@ -86,11 +96,10 @@ struct ImageCanvas: View {
                         }
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
-                    .allowsHitTesting(true)
+                    .allowsHitTesting(false)
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
-            .clipped()
             .onAppear {
                 viewSize = geometry.size
                 viewModel.updateViewSize(geometry.size)
@@ -100,12 +109,10 @@ struct ImageCanvas: View {
             .onChange(of: geometry.size) { newValue in
                 viewSize = newValue
                 viewModel.updateViewSize(newValue)
-                print("📐 ImageCanvas size changed - View: \(newValue), Image: \(viewModel.zoomState.imageSize), Display: \(viewModel.zoomState.displaySize), Scale: \(viewModel.zoomState.scale)")
+                print("📐 ImageCanvas size changed - View: \(newValue)")
             }
             .onChange(of: viewModel.zoomState.scale) { newScale in
-                let displaySize = viewModel.zoomState.displaySize
-                print("🔍 Zoom changed - Scale: \(newScale) (\(Int(newScale * 100))%), Display: \(displaySize), Offset: \(viewModel.zoomState.offset)")
-                print("📍 View bounds: \(geometry.size), InfoBar should be at bottom: y=\(geometry.size.height - 50)")
+                print("🔍 Zoom changed - Scale: \(newScale) (\(Int(newScale * 100))%)")
             }
             .onChange(of: viewModel.currentImage) { _ in
                 // Ensure image is properly sized when loaded
@@ -114,26 +121,6 @@ struct ImageCanvas: View {
                         viewModel.fitToWindow()
                     }
                 }
-            }
-        }
-        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-            handleDrop(providers: providers)
-            return true
-        }
-    }
-    
-    private func handleDrop(providers: [NSItemProvider]) {
-        guard let provider = providers.first else { return }
-        
-        provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, error in
-            guard let data = item as? Data,
-                  let url = URL(dataRepresentation: data, relativeTo: nil) else {
-                return
-            }
-            
-            DispatchQueue.main.async {
-                let imageFile = ImageFile(path: url.path)
-                viewModel.loadImage(from: imageFile)
             }
         }
     }
