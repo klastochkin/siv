@@ -14,6 +14,42 @@ struct Album: Codable {
         self.modified = Date()
     }
     
+    // Custom coding keys to support legacy "entries" format
+    enum CodingKeys: String, CodingKey {
+        case name
+        case images
+        case entries // Legacy format
+        case created
+        case modified
+    }
+    
+    // Custom decoder to handle both "images" and "entries"
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Default"
+        created = try container.decodeIfPresent(Date.self, forKey: .created) ?? Date()
+        modified = try container.decodeIfPresent(Date.self, forKey: .modified) ?? Date()
+        
+        // Try to decode from "images" first, then fall back to "entries"
+        if let imgs = try? container.decode([ImageFile].self, forKey: .images) {
+            images = imgs
+        } else if let entries = try? container.decode([ImageFile].self, forKey: .entries) {
+            images = entries
+        } else {
+            images = []
+        }
+    }
+    
+    // Custom encoder to always use "images"
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(images, forKey: .images)
+        try container.encode(created, forKey: .created)
+        try container.encode(modified, forKey: .modified)
+    }
+    
     /// Add an image to the album
     mutating func addImage(_ imageFile: ImageFile) {
         // Check if image already exists

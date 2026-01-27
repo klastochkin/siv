@@ -18,7 +18,7 @@ struct SIVApp: App {
 }
 
 /// Application commands (menu items)
-struct SIVCommands: Commands 
+struct SIVCommands: Commands {
     var body: some Commands {
         // File menu
         CommandGroup(replacing: .newItem) {
@@ -30,9 +30,8 @@ struct SIVCommands: Commands
             Divider()
             
             Button("Add to Album...") {
-                NotificationCenter.default.post(name: .addToAlbum, object: nil)
+                NotificationCenter.default.post(name: .addImagesToAlbum, object: nil)
             }
-            .keyboardShortcut("a", modifiers: .command)
         }
         
         // View menu
@@ -81,7 +80,7 @@ struct SIVCommands: Commands
         // Album menu
         CommandMenu("Album") {
             Button("Add Images...") {
-                NotificationCenter.default.post(name: .addToAlbum, object: nil)
+                NotificationCenter.default.post(name: .addImagesToAlbum, object: nil)
             }
             
             Divider()
@@ -103,6 +102,7 @@ struct SIVCommands: Commands
 extension Notification.Name {
     static let openImage = Notification.Name("openImage")
     static let addToAlbum = Notification.Name("addToAlbum")
+    static let addImagesToAlbum = Notification.Name("addImagesToAlbum")
     static let toggleAlbumView = Notification.Name("toggleAlbumView")
     static let setThumbnailView = Notification.Name("setThumbnailView")
     static let setListView = Notification.Name("setListView")

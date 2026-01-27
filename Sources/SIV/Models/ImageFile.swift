@@ -19,6 +19,36 @@ struct ImageFile: Codable, Identifiable, Equatable {
         self.lastModified = lastModified
     }
     
+    // Custom decoder to handle legacy format where "id" was a string (path)
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Try to decode id as UUID first, then fall back to generating one
+        if let uuid = try? container.decode(UUID.self, forKey: .id) {
+            id = uuid
+        } else {
+            // Legacy format: id was a string (path), generate a new UUID
+            id = UUID()
+        }
+        
+        path = try container.decode(String.self, forKey: .path)
+        lastModified = try container.decodeIfPresent(Date.self, forKey: .lastModified) ?? Date()
+    }
+    
+    // Custom encoder
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(path, forKey: .path)
+        try container.encode(lastModified, forKey: .lastModified)
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case path
+        case lastModified
+    }
+    
     /// Check if the file exists on disk
     var exists: Bool {
         FileManager.default.fileExists(atPath: path)

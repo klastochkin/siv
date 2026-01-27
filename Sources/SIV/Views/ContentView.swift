@@ -49,9 +49,19 @@ struct ContentView: View {
             imageViewModel.openImageFile()
         }
         .onReceive(NotificationCenter.default.publisher(for: .addToAlbum)) { _ in
+            // Cmd+A: Add current image to album
+            print("🔔 ContentView: Received .addToAlbum notification")
             if let imageFile = imageViewModel.currentImageFile {
+                print("📸 ContentView: Adding current image to album: \(imageFile.path)")
                 Task { await albumViewModel.addImage(imageFile.path) }
+            } else {
+                print("⚠️ ContentView: No current image to add")
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .addImagesToAlbum)) { _ in
+            // Menu: Open file picker to add multiple images
+            print("🔔 ContentView: Received .addImagesToAlbum notification")
+            albumViewModel.openFilePicker()
         }
         .onReceive(NotificationCenter.default.publisher(for: .fitToWindow)) { _ in
             imageViewModel.fitToWindow()
