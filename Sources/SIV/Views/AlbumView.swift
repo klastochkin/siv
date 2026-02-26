@@ -1,206 +1,309 @@
 import SwiftUI
 
-/// Album view displaying list or thumbnails of images
 struct AlbumView: View {
     @ObservedObject var viewModel: AlbumViewModel
     @ObservedObject var imageViewModel: ImageViewModel
     
+    @State private var propertiesImageFile: ImageFile?
+    @State private var showBatchTimestamp = false
+    
     var body: some View {
         VStack(spacing: 0) {
-            // Toolbar
-            HStack {
-                Text("Album")
-                    .font(.headline)
-                
-                Spacer()
-                
-                Picker("View Mode", selection: $viewModel.viewMode) {
-                    ForEach(AlbumViewMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 180)
-                
-                Button(action: {
-                    viewModel.openFilePicker()
-                }) {
-                    Image(systemName: "plus")
-                }
-                .buttonStyle(.borderless)
-            }
-            .padding(8)
-            .background(Color(NSColor.controlBackgroundColor))
-            
+            toolbar
             Divider()
-            
-            // Content
-            if viewModel.images.isEmpty {
-                VStack(spacing: 20) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 48))
-                        .foregroundColor(.gray)
-                    Text("No Images in Album")
-                        .font(.title3)
-                        .foregroundColor(.gray)
-                    Text("Drag & drop images here to add to album")
-                        .font(.body)
-                        .foregroundColor(.gray.opacity(0.7))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                    handleDrop(providers: providers)
-                    return true
-                }
-            } else {
-                if viewModel.viewMode == .list {
-                    listView
-                        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                            handleDrop(providers: providers)
-                            return true
-                        }
-                } else {
-                    thumbnailView
-                        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                            handleDrop(providers: providers)
-                            return true
-                        }
-                }
+            content
+        }
+        .onChange(of: viewModel.selectedIndices) { _ in
+            if let image = viewModel.selectedImage {
+                imageViewModel.loadImage(from: image)
             }
+        }
+        .sheet(item: $propertiesImageFile) { imageFile in
+            ExifPropertiesView(imageFile: imageFile)
+        }
+        .sheet(isPresented: $showBatchTimestamp) {
+            BatchTimestampView(imageFiles: viewModel.selectedImageFiles)
         }
         .alert("Missing Files", isPresented: $viewModel.showMissingFilesDialog) {
             Button("Remove All Missing Files") {
-                Task {
-                    await viewModel.removeMissingFiles()
-                }
+                Task { await viewModel.removeMissingFiles() }
             }
             Button("Cancel", role: .cancel) {
                 viewModel.showMissingFilesDialog = false
             }
         } message: {
-            Text("The following files are missing:\n\n" + 
+            Text("The following files are missing:\n\n" +
                  viewModel.missingFiles.map { $0.fileName }.joined(separator: "\n"))
         }
     }
     
-    private var listView: some View {
-        List(selection: $viewModel.selectedImageIndex) {
-            ForEach(Array(viewModel.images.enumerated()), id: \.element.id) { index, image in
-                HStack {
-                    if !image.exists {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.red)
-                    } else {
-                        Image(systemName: "photo")
-                            .foregroundColor(.blue)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(image.fileName)
-                            .font(.body)
-                        
-                        if let dimensions = image.dimensions, let size = image.fileSize {
-                            Text("\(Int(dimensions.width))×\(Int(dimensions.height)) • \(formatFileSize(size))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    Spacer()
+    // MARK: - Toolbar
+    
+    private var toolbar: some View {
+        HStack {
+            Text("Album")
+                .font(.headline)
+            
+            Text("\(viewModel.images.count) images")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            if !viewModel.selectedIndices.isEmpty {
+                Text("(\(viewModel.selectedIndices.count) selected)")
+                    .font(.caption)
+                    .foregroundColor(.accentColor)
+            }
+            
+            Spacer()
+            
+            if !viewModel.selectedIndices.isEmpty {
+                Button(action: { viewModel.exportSelectedImages() }) {
+                    Image(systemName: "square.and.arrow.up")
                 }
-                .tag(index)
-                .contextMenu {
-                    Button("Remove from Album") {
-                        Task {
-                            await viewModel.removeImage(at: index)
-                        }
-                    }
+                .buttonStyle(.borderless)
+                .help("Export \(viewModel.selectedIndices.count) selected image(s)")
+            }
+            
+            Picker("View Mode", selection: $viewModel.viewMode) {
+                ForEach(AlbumViewMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
                 }
             }
+            .pickerStyle(.segmented)
+            .frame(width: 180)
+            
+            Button(action: { viewModel.openFilePicker() }) {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.borderless)
         }
-        .onChange(of: viewModel.selectedImageIndex) { newValue in
-            if let index = newValue, index < viewModel.images.count {
-                let imageFile = viewModel.images[index]
-                imageViewModel.loadImage(from: imageFile)
+        .padding(8)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+    
+    // MARK: - Content
+    
+    @ViewBuilder
+    private var content: some View {
+        if viewModel.images.isEmpty {
+            emptyState
+        } else if viewModel.viewMode == .list {
+            listView
+                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                    handleDrop(providers: providers)
+                    return true
+                }
+        } else {
+            thumbnailView
+                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                    handleDrop(providers: providers)
+                    return true
+                }
+        }
+    }
+    
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.system(size: 48))
+                .foregroundColor(.gray)
+            Text("No Images in Album")
+                .font(.title3)
+                .foregroundColor(.gray)
+            Text("Drag & drop images here to add to album")
+                .font(.body)
+                .foregroundColor(.gray.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            handleDrop(providers: providers)
+            return true
+        }
+    }
+    
+    // MARK: - List View
+    
+    private var listView: some View {
+        ScrollViewReader { proxy in
+            List {
+                ForEach(Array(viewModel.images.enumerated()), id: \.element.id) { index, image in
+                    HStack {
+                        if !image.exists {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.red)
+                        } else {
+                            Image(systemName: "photo")
+                                .foregroundColor(.blue)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(image.fileName)
+                                .font(.body)
+                            
+                            if let dimensions = image.dimensions, let size = image.fileSize {
+                                Text("\(Int(dimensions.width))×\(Int(dimensions.height)) • \(formatFileSize(size))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        let flags = NSApp.currentEvent?.modifierFlags ?? []
+                        viewModel.handleClick(
+                            at: index,
+                            cmd: flags.contains(.command),
+                            shift: flags.contains(.shift)
+                        )
+                    }
+                    .listRowBackground(
+                        viewModel.selectedIndices.contains(index)
+                            ? Color.accentColor.opacity(0.2)
+                            : Color.clear
+                    )
+                    .help(tooltipText(for: image))
+                    .contextMenu { imageContextMenu(for: index) }
+                    .id(image.id)
+                }
+            }
+            .onChange(of: viewModel.lastClickedIndex) { newValue in
+                if let index = newValue, index < viewModel.images.count {
+                    withAnimation { proxy.scrollTo(viewModel.images[index].id) }
+                }
             }
         }
     }
     
+    // MARK: - Thumbnail View
+    
     private var thumbnailView: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 16) {
-                ForEach(Array(viewModel.images.enumerated()), id: \.element.id) { index, image in
-                    VStack {
-                        ZStack {
-                            if let nsImage = image.loadImage() {
-                                Image(nsImage: nsImage)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 100, height: 100)
-                                    .cornerRadius(8)
-                            } else {
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.3))
-                                    .frame(width: 100, height: 100)
-                                    .cornerRadius(8)
-                                    .overlay(
-                                        Image(systemName: "photo")
-                                            .font(.largeTitle)
-                                            .foregroundColor(.gray)
-                                    )
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 16) {
+                    ForEach(Array(viewModel.images.enumerated()), id: \.element.id) { index, image in
+                        VStack {
+                            ZStack {
+                                if let nsImage = image.loadImage() {
+                                    Image(nsImage: nsImage)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(width: 100, height: 100)
+                                        .cornerRadius(8)
+                                } else {
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.3))
+                                        .frame(width: 100, height: 100)
+                                        .cornerRadius(8)
+                                        .overlay(
+                                            Image(systemName: "photo")
+                                                .font(.largeTitle)
+                                                .foregroundColor(.gray)
+                                        )
+                                }
+                                
+                                if !image.exists {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.largeTitle)
+                                        .foregroundColor(.red)
+                                        .background(Circle().fill(Color.white).padding(6))
+                                }
                             }
                             
-                            if !image.exists {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.red)
-                                    .background(Circle().fill(Color.white).padding(6))
-                            }
+                            Text(image.fileName)
+                                .font(.caption)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.center)
+                                .frame(width: 100)
                         }
-                        
-                        Text(image.fileName)
-                            .font(.caption)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            .frame(width: 100)
-                    }
-                    .padding(8)
-                    .background(viewModel.selectedImageIndex == index ? Color.accentColor.opacity(0.2) : Color.clear)
-                    .cornerRadius(8)
-                    .onTapGesture {
-                        viewModel.selectImage(at: index)
-                        let imageFile = viewModel.images[index]
-                        imageViewModel.loadImage(from: imageFile)
-                    }
-                    .contextMenu {
-                        Button("Remove from Album") {
-                            Task {
-                                await viewModel.removeImage(at: index)
-                            }
+                        .padding(8)
+                        .background(
+                            viewModel.selectedIndices.contains(index)
+                                ? Color.accentColor.opacity(0.2)
+                                : Color.clear
+                        )
+                        .cornerRadius(8)
+                        .onTapGesture {
+                            let flags = NSApp.currentEvent?.modifierFlags ?? []
+                            viewModel.handleClick(
+                                at: index,
+                                cmd: flags.contains(.command),
+                                shift: flags.contains(.shift)
+                            )
                         }
+                        .help(tooltipText(for: image))
+                        .contextMenu { imageContextMenu(for: index) }
+                        .id(image.id)
                     }
                 }
+                .padding()
             }
-            .padding()
+            .onChange(of: viewModel.lastClickedIndex) { newValue in
+                if let index = newValue, index < viewModel.images.count {
+                    withAnimation { proxy.scrollTo(viewModel.images[index].id) }
+                }
+            }
         }
+    }
+    
+    // MARK: - Context Menu
+    
+    @ViewBuilder
+    private func imageContextMenu(for index: Int) -> some View {
+        let image = viewModel.images[index]
+        let isMultiSelect = viewModel.selectedIndices.count > 1 && viewModel.selectedIndices.contains(index)
+        
+        Button("Properties...") {
+            propertiesImageFile = image
+        }
+        
+        Divider()
+        
+        if isMultiSelect {
+            Button("Set Timestamps...") {
+                showBatchTimestamp = true
+            }
+            
+            Button("Export \(viewModel.selectedIndices.count) Selected...") {
+                viewModel.exportSelectedImages()
+            }
+            
+            Divider()
+            
+            Button("Remove \(viewModel.selectedIndices.count) Selected from Album") {
+                Task { await viewModel.removeSelectedImages() }
+            }
+        } else {
+            Button("Remove from Album") {
+                Task { await viewModel.removeImage(at: index) }
+            }
+        }
+    }
+    
+    // MARK: - Helpers
+    
+    private func tooltipText(for image: ImageFile) -> String {
+        var lines = [image.path]
+        if let dims = image.dimensions {
+            lines.append("\(Int(dims.width)) × \(Int(dims.height)) px")
+        }
+        if let size = image.fileSize {
+            lines.append(formatFileSize(size))
+        }
+        return lines.joined(separator: "\n")
     }
     
     private func handleDrop(providers: [NSItemProvider]) {
-        print("DEBUG: handleDrop called with \(providers.count) providers")
         Task {
             var paths: [String] = []
-            
             for provider in providers {
                 if let path = await loadPath(from: provider) {
-                    print("DEBUG: Loaded path: \(path)")
                     paths.append(path)
                 }
             }
-            
-            print("DEBUG: Total paths: \(paths.count)")
             if !paths.isEmpty {
                 await viewModel.addImages(paths)
-                print("DEBUG: Images added to album")
             }
         }
     }

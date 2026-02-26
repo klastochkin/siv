@@ -55,10 +55,7 @@ class AlbumManager: ObservableObject {
             return
         }
         
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        
-        guard let album = try? decoder.decode(Album.self, from: data) else {
+        guard let album = try? JSONDecoder().decode(Album.self, from: data) else {
             print("❌ AlbumManager: Failed to decode album JSON")
             return
         }
@@ -119,6 +116,24 @@ class AlbumManager: ObservableObject {
         guard var album = await MainActor.run(body: { currentAlbum }) else { return }
         
         album.removeImage(at: index)
+        
+        let updatedAlbum = album
+        await MainActor.run {
+            currentAlbum = updatedAlbum
+        }
+        
+        await saveCurrentAlbum()
+    }
+    
+    /// Remove multiple images by index (handles reverse-order removal)
+    func removeImages(at indices: Set<Int>) async {
+        guard var album = await MainActor.run(body: { currentAlbum }) else { return }
+        
+        for index in indices.sorted(by: >) {
+            guard index >= 0 && index < album.images.count else { continue }
+            album.images.remove(at: index)
+        }
+        album.modified = Date()
         
         let updatedAlbum = album
         await MainActor.run {

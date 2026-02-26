@@ -83,6 +83,11 @@ struct SIVCommands: Commands {
                 NotificationCenter.default.post(name: .addImagesToAlbum, object: nil)
             }
             
+            Button("Export Selected...") {
+                NotificationCenter.default.post(name: .exportSelectedImages, object: nil)
+            }
+            .keyboardShortcut("e", modifiers: .command)
+            
             Divider()
             
             Button("Next Image") {
@@ -112,4 +117,5 @@ extension Notification.Name {
     static let zoomOut = Notification.Name("zoomOut")
     static let nextImage = Notification.Name("nextImage")
     static let previousImage = Notification.Name("previousImage")
+    static let exportSelectedImages = Notification.Name("exportSelectedImages")
 }

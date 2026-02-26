@@ -8,6 +8,7 @@ struct ImageCanvas: View {
     @State private var viewSize: CGSize = .zero
     @State private var lastMagnification: CGFloat = 1.0
     @State private var dragOffset: CGSize = .zero
+    @State private var propertiesImageFile: ImageFile?
     
     var body: some View {
         GeometryReader { geometry in
@@ -67,10 +68,16 @@ struct ImageCanvas: View {
                                 }
                         )
                         .simultaneousGesture(
-                            // Enable scroll wheel zoom
                             DragGesture(minimumDistance: 0)
                                 .onChanged { _ in }
                         )
+                        .contextMenu {
+                            if let imageFile = viewModel.currentImageFile {
+                                Button("Properties...") {
+                                    propertiesImageFile = imageFile
+                                }
+                            }
+                        }
                 } else {
                     VStack(spacing: 20) {
                         Image(systemName: "photo")
@@ -115,12 +122,14 @@ struct ImageCanvas: View {
                 print("🔍 Zoom changed - Scale: \(newScale) (\(Int(newScale * 100))%)")
             }
             .onChange(of: viewModel.currentImage) { _ in
-                // Ensure image is properly sized when loaded
                 if viewModel.currentImage != nil {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         viewModel.fitToWindow()
                     }
                 }
+            }
+            .sheet(item: $propertiesImageFile) { imageFile in
+                ExifPropertiesView(imageFile: imageFile)
             }
         }
     }
