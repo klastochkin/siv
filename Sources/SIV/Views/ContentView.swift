@@ -85,6 +85,9 @@ struct ContentView: View {
                 albumViewModel.selectPreviousImage()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .exportSelectedImages)) { _ in
+            albumViewModel.exportSelectedImages()
+        }
     }
 }
 

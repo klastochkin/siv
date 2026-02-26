@@ -2,24 +2,22 @@ import Foundation
 import SwiftUI
 import Combine
 
-/// View mode for album display
 enum AlbumViewMode: String, CaseIterable {
     case thumbnails = "Thumbnails"
     case list = "List"
 }
 
-/// ViewModel for the Album View
 @MainActor
 class AlbumViewModel: ObservableObject {
     @Published var albumManager = AlbumManager()
-    @Published var selectedImageIndex: Int?
+    @Published var selectedIndices: Set<Int> = []
+    @Published var lastClickedIndex: Int?
     @Published var viewMode: AlbumViewMode = .list
     @Published var showMissingFilesDialog: Bool = false
     
     private var cancellables = Set<AnyCancellable>()
     
     init() {
-        // Forward albumManager changes to this view model (async to avoid publishing during view update)
         albumManager.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async {
                 self?.objectWillChange.send()
@@ -28,121 +26,228 @@ class AlbumViewModel: ObservableObject {
         .store(in: &cancellables)
     }
     
-    /// Initialize and load default album
     func initialize() async {
         print("🚀 AlbumViewModel: Initializing...")
         await albumManager.loadDefaultAlbum()
         print("✅ AlbumViewModel: Loaded album with \(images.count) images")
         
-        // Check for missing files and show dialog if needed
         if albumManager.hasMissingFiles {
             showMissingFilesDialog = true
         }
     }
     
-    /// Get current album
     var album: Album? {
         albumManager.currentAlbum
     }
     
-    /// Get images in current album
     var images: [ImageFile] {
         album?.images ?? []
     }
     
-    /// Add images to album
+    // MARK: - Adding Images
+    
+    private static let supportedExtensions: Set<String> = [
+        "jpg", "jpeg", "png", "heic", "heif", "tiff", "tif", "gif", "bmp", "webp"
+    ]
+    
     func addImages(_ paths: [String]) async {
-        print("📸 AlbumViewModel: Adding \(paths.count) images to album")
-        await albumManager.addImages(paths)
+        let resolvedPaths = paths.flatMap { expandPath($0) }
+        print("📸 AlbumViewModel: Adding \(resolvedPaths.count) images to album (from \(paths.count) dropped items)")
+        await albumManager.addImages(resolvedPaths)
         print("✅ AlbumViewModel: Album now has \(images.count) images")
-        print("📋 AlbumViewModel: Images: \(images.map { $0.fileName }.joined(separator: ", "))")
     }
     
-    /// Add image to album
+    private func expandPath(_ path: String) -> [String] {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir) else { return [] }
+        
+        if !isDir.boolValue {
+            return [path]
+        }
+        
+        guard let enumerator = FileManager.default.enumerator(
+            at: URL(fileURLWithPath: path),
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        
+        var result: [String] = []
+        for case let fileURL as URL in enumerator {
+            if Self.supportedExtensions.contains(fileURL.pathExtension.lowercased()) {
+                result.append(fileURL.path)
+            }
+        }
+        result.sort()
+        return result
+    }
+    
     func addImage(_ path: String) async {
         await addImages([path])
     }
     
-    /// Remove image at index
-    func removeImage(at index: Int) async {
-        await albumManager.removeImage(at: index)
-        
-        // Adjust selection if needed
-        if let selected = selectedImageIndex {
-            if selected == index {
-                selectedImageIndex = nil
-            } else if selected > index {
-                selectedImageIndex = selected - 1
-            }
+    // MARK: - Selection
+    
+    /// The index of the image to display in the canvas
+    var primarySelectedIndex: Int? {
+        if let last = lastClickedIndex, selectedIndices.contains(last), last < images.count {
+            return last
         }
+        return selectedIndices.sorted().first
     }
     
-    /// Remove missing files
-    func removeMissingFiles() async {
-        _ = await albumManager.removeMissingFiles()
-        showMissingFilesDialog = false
-    }
-    
-    /// Select next image
-    func selectNextImage() {
-        guard !images.isEmpty else { return }
-        
-        if let current = selectedImageIndex {
-            selectedImageIndex = min(current + 1, images.count - 1)
-        } else {
-            selectedImageIndex = 0
-        }
-    }
-    
-    /// Select previous image
-    func selectPreviousImage() {
-        guard !images.isEmpty else { return }
-        
-        if let current = selectedImageIndex {
-            selectedImageIndex = max(current - 1, 0)
-        } else {
-            selectedImageIndex = images.count - 1
-        }
-    }
-    
-    /// Get currently selected image
     var selectedImage: ImageFile? {
-        guard let index = selectedImageIndex, index < images.count else {
-            return nil
-        }
+        guard let index = primarySelectedIndex, index < images.count else { return nil }
         return images[index]
     }
     
-    /// Select image at index
-    func selectImage(at index: Int) {
-        guard index >= 0 && index < images.count else { return }
-        selectedImageIndex = index
+    /// Selected image files in album order
+    var selectedImageFiles: [ImageFile] {
+        selectedIndices.sorted().compactMap { idx in
+            idx < images.count ? images[idx] : nil
+        }
     }
     
-    /// Open file picker to add images
-    func openFilePicker() {
-        print("📂 AlbumViewModel: openFilePicker called")
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = [.jpeg, .png, .heic]
+    func handleClick(at index: Int, cmd: Bool, shift: Bool) {
+        guard index >= 0 && index < images.count else { return }
         
-        print("📂 AlbumViewModel: Running modal panel...")
-        let result = panel.runModal()
-        print("📂 AlbumViewModel: Panel result: \(result == .OK ? "OK" : "Cancel")")
-        
-        if result == .OK {
-            let paths = panel.urls.map { $0.path }
-            print("📂 AlbumViewModel: Selected \(paths.count) files: \(paths)")
-            Task {
-                await addImages(paths)
-                print("✅ AlbumViewModel: Images added to album")
+        if shift, let anchor = lastClickedIndex {
+            let range = Set(min(anchor, index)...max(anchor, index))
+            if cmd {
+                selectedIndices.formUnion(range)
+            } else {
+                selectedIndices = range
+            }
+        } else if cmd {
+            if selectedIndices.contains(index) {
+                selectedIndices.remove(index)
+            } else {
+                selectedIndices.insert(index)
+            }
+            lastClickedIndex = index
+        } else {
+            selectedIndices = [index]
+            lastClickedIndex = index
+        }
+    }
+    
+    func selectImage(at index: Int) {
+        guard index >= 0 && index < images.count else { return }
+        selectedIndices = [index]
+        lastClickedIndex = index
+    }
+    
+    func selectNextImage() {
+        guard !images.isEmpty else { return }
+        let current = lastClickedIndex ?? -1
+        let next = min(current + 1, images.count - 1)
+        selectedIndices = [next]
+        lastClickedIndex = next
+    }
+    
+    func selectPreviousImage() {
+        guard !images.isEmpty else { return }
+        let current = lastClickedIndex ?? images.count
+        let prev = max(current - 1, 0)
+        selectedIndices = [prev]
+        lastClickedIndex = prev
+    }
+    
+    // MARK: - Removal
+    
+    func removeImage(at index: Int) async {
+        await albumManager.removeImage(at: index)
+        adjustSelectionAfterRemoval(of: Set([index]))
+    }
+    
+    func removeSelectedImages() async {
+        guard !selectedIndices.isEmpty else { return }
+        await albumManager.removeImages(at: selectedIndices)
+        selectedIndices.removeAll()
+        lastClickedIndex = nil
+    }
+    
+    private func adjustSelectionAfterRemoval(of removed: Set<Int>) {
+        var newSelection = Set<Int>()
+        for idx in selectedIndices where !removed.contains(idx) {
+            let offset = removed.filter { $0 < idx }.count
+            newSelection.insert(idx - offset)
+        }
+        selectedIndices = newSelection
+        if let last = lastClickedIndex {
+            if removed.contains(last) {
+                lastClickedIndex = newSelection.sorted().first
+            } else {
+                let offset = removed.filter { $0 < last }.count
+                lastClickedIndex = last - offset
             }
         }
     }
     
-    /// Get missing files list
+    func removeMissingFiles() async {
+        _ = await albumManager.removeMissingFiles()
+        selectedIndices.removeAll()
+        lastClickedIndex = nil
+        showMissingFilesDialog = false
+    }
+    
+    // MARK: - Export
+    
+    func exportSelectedImages() {
+        let imagesToExport = selectedIndices.sorted().compactMap { idx -> ImageFile? in
+            idx < images.count ? images[idx] : nil
+        }
+        guard !imagesToExport.isEmpty else { return }
+        
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        panel.message = "Choose a folder to export \(imagesToExport.count) image(s)"
+        
+        guard panel.runModal() == .OK, let destinationURL = panel.url else { return }
+        
+        let fm = FileManager.default
+        var exported = 0
+        for image in imagesToExport {
+            let sourceURL = URL(fileURLWithPath: image.path)
+            var destURL = destinationURL.appendingPathComponent(image.fileName)
+            
+            var counter = 1
+            let baseName = destURL.deletingPathExtension().lastPathComponent
+            let ext = destURL.pathExtension
+            while fm.fileExists(atPath: destURL.path) {
+                destURL = destinationURL.appendingPathComponent("\(baseName)_\(counter).\(ext)")
+                counter += 1
+            }
+            
+            do {
+                try fm.copyItem(at: sourceURL, to: destURL)
+                exported += 1
+            } catch {
+                print("❌ Export failed for \(image.fileName): \(error.localizedDescription)")
+            }
+        }
+        print("✅ Exported \(exported)/\(imagesToExport.count) images to \(destinationURL.path)")
+    }
+    
+    // MARK: - File Picker
+    
+    func openFilePicker() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [.jpeg, .png, .heic, .tiff, .gif, .bmp, .image, .folder]
+        
+        if panel.runModal() == .OK {
+            let paths = panel.urls.map { $0.path }
+            Task {
+                await addImages(paths)
+            }
+        }
+    }
+    
     var missingFiles: [ImageFile] {
         albumManager.missingFiles
     }
