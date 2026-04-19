@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Set minimum window size and bring to front
         if let window = NSApplication.shared.windows.first {
             window.minSize = NSSize(width: 600, height: 400)
+            window.setFrameAutosaveName("MainWindow")
             window.makeKeyAndOrderFront(nil)
             window.orderFrontRegardless()
         }

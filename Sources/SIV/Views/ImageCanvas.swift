@@ -17,7 +17,7 @@ struct ImageCanvas: View {
                 
                 // Drop zone overlay - captures all drops (must be after Color.black so it's on top)
                 DropZoneView { urls in
-                    print("🎯 ImageCanvas: DropZoneView received \(urls.count) files")
+                    log("🎯 ImageCanvas: DropZoneView received \(urls.count) files")
                     if let url = urls.first {
                         let imageFile = ImageFile(path: url.path)
                         viewModel.loadImage(from: imageFile)
@@ -111,15 +111,15 @@ struct ImageCanvas: View {
                 viewSize = geometry.size
                 viewModel.updateViewSize(geometry.size)
                 focusedView = .image
-                print("📐 ImageCanvas onAppear - View size: \(geometry.size)")
+                log("📐 ImageCanvas onAppear - View size: \(geometry.size)")
             }
             .onChange(of: geometry.size) { newValue in
                 viewSize = newValue
                 viewModel.updateViewSize(newValue)
-                print("📐 ImageCanvas size changed - View: \(newValue)")
+                log("📐 ImageCanvas size changed - View: \(newValue)")
             }
             .onChange(of: viewModel.zoomState.scale) { newScale in
-                print("🔍 Zoom changed - Scale: \(newScale) (\(Int(newScale * 100))%)")
+                log("🔍 Zoom changed - Scale: \(newScale) (\(Int(newScale * 100))%)")
             }
             .onChange(of: viewModel.currentImage) { _ in
                 if viewModel.currentImage != nil {

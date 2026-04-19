@@ -20,30 +20,30 @@ class AlbumManager: ObservableObject {
     
     /// Load the default album
     func loadDefaultAlbum() async {
-        print("🔄 AlbumManager: Loading default album...")
+        log("🔄 AlbumManager: Loading default album...")
         await MainActor.run {
             isLoading = true
         }
         
         let path = defaultAlbumPath
-        print("📂 AlbumManager: Album path: \(path)")
+        log("📂 AlbumManager: Album path: \(path)")
         
         if fileManager.fileExists(atPath: path) {
-            print("📖 AlbumManager: Album file exists, loading...")
+            log("📖 AlbumManager: Album file exists, loading...")
             await loadAlbum(from: path)
         } else {
-            print("🆕 AlbumManager: No album file, creating new...")
+            log("🆕 AlbumManager: No album file, creating new...")
             // Create new default album
             let album = Album(name: "Default")
             await MainActor.run {
                 currentAlbum = album
-                print("✅ AlbumManager: Created new album")
+                log("✅ AlbumManager: Created new album")
             }
             await saveCurrentAlbum()
         }
         
         await MainActor.run {
-            print("✅ AlbumManager: Album loaded with \(currentAlbum?.images.count ?? 0) images")
+            log("✅ AlbumManager: Album loaded with \(currentAlbum?.images.count ?? 0) images")
             isLoading = false
         }
     }
@@ -51,16 +51,16 @@ class AlbumManager: ObservableObject {
     /// Load album from file
     func loadAlbum(from path: String) async {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
-            print("❌ AlbumManager: Failed to read album file")
+            log("❌ AlbumManager: Failed to read album file")
             return
         }
         
         guard let album = try? JSONDecoder().decode(Album.self, from: data) else {
-            print("❌ AlbumManager: Failed to decode album JSON")
+            log("❌ AlbumManager: Failed to decode album JSON")
             return
         }
         
-        print("✅ AlbumManager: Decoded album with \(album.images.count) images")
+        log("✅ AlbumManager: Decoded album with \(album.images.count) images")
         
         await MainActor.run {
             currentAlbum = album
@@ -85,27 +85,27 @@ class AlbumManager: ObservableObject {
     
     /// Add images to current album
     func addImages(_ paths: [String]) async {
-        print("🎨 AlbumManager: Adding \(paths.count) images...")
+        log("🎨 AlbumManager: Adding \(paths.count) images...")
         guard var album = await MainActor.run(body: { currentAlbum }) else {
-            print("❌ AlbumManager: No current album!")
+            log("❌ AlbumManager: No current album!")
             return
         }
         
-        print("📦 AlbumManager: Current album has \(album.images.count) images")
+        log("📦 AlbumManager: Current album has \(album.images.count) images")
         
         for path in paths {
             let imageFile = ImageFile(path: path)
             album.addImage(imageFile)
-            print("➕ AlbumManager: Added \(imageFile.fileName)")
+            log("➕ AlbumManager: Added \(imageFile.fileName)")
         }
         
-        print("📦 AlbumManager: Album now has \(album.images.count) images")
+        log("📦 AlbumManager: Album now has \(album.images.count) images")
         
         let updatedAlbum = album
         await MainActor.run {
-            print("💾 AlbumManager: Updating currentAlbum...")
+            log("💾 AlbumManager: Updating currentAlbum...")
             currentAlbum = updatedAlbum
-            print("✅ AlbumManager: currentAlbum updated with \(currentAlbum?.images.count ?? 0) images")
+            log("✅ AlbumManager: currentAlbum updated with \(currentAlbum?.images.count ?? 0) images")
         }
         
         await saveCurrentAlbum()
