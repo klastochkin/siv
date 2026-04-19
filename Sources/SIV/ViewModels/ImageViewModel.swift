@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import SwiftUI
 import Combine
+import ImageIO
 
 /// ViewModel for the Image View
 @MainActor
@@ -10,6 +11,9 @@ class ImageViewModel: ObservableObject {
     @Published var currentImageFile: ImageFile?
     @Published var isLoading: Bool = false
     @Published var zoomState = ZoomState()
+
+    /// Static part of the info bar (filename, dimensions, size) — computed once per image load.
+    private var cachedInfoBase = ""
     
     private let imageLoader = ImageLoader()
     private var currentLoadTask: Task<Void, Never>?
@@ -28,19 +32,46 @@ class ImageViewModel: ObservableObject {
         currentLoadTask?.cancel()
         
         currentImageFile = imageFile
+        cachedInfoBase = ""
         isLoading = true
+        log("⏳ ImageViewModel: Start rendering \(imageFile.fileName)")
         
         currentLoadTask = Task {
             let image = await imageLoader.loadImage(from: imageFile.path)
             
             guard !Task.isCancelled else {
                 isLoading = false
+                log("🚫 ImageViewModel: Rendering cancelled for \(imageFile.fileName)")
                 return
             }
             
             currentImage = image
             isLoading = false
-            
+            log("✅ ImageViewModel: Finished rendering \(imageFile.fileName)")
+
+            // Build the static portion of the info bar off the render path.
+            // These disk reads happen once per image load, not on every zoom/pan frame.
+            let path = imageFile.path
+            let infoBase = await Task.detached(priority: .userInitiated) {
+                var info = URL(fileURLWithPath: path).lastPathComponent
+                let url = URL(fileURLWithPath: path) as CFURL
+                if let source = CGImageSourceCreateWithURL(url, nil),
+                   let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                   let w = props[kCGImagePropertyPixelWidth] as? CGFloat,
+                   let h = props[kCGImagePropertyPixelHeight] as? CGFloat {
+                    info += " • \(Int(w))×\(Int(h))"
+                }
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+                   let size = attrs[.size] as? Int64 {
+                    let formatter = ByteCountFormatter()
+                    formatter.allowedUnits = [.useKB, .useMB, .useGB]
+                    formatter.countStyle = .file
+                    info += " • \(formatter.string(fromByteCount: size))"
+                }
+                return info
+            }.value
+            cachedInfoBase = infoBase
+
             // Reset zoom state for new image
             if let image = image {
                 let imageSize = image.size
@@ -73,29 +104,8 @@ class ImageViewModel: ObservableObject {
     
     /// Get image info for display
     var imageInfo: String {
-        guard let imageFile = currentImageFile else { return "" }
-        
-        var info = imageFile.fileName
-        
-        if let dimensions = imageFile.dimensions {
-            info += " • \(Int(dimensions.width))×\(Int(dimensions.height))"
-        }
-        
-        if let size = imageFile.fileSize {
-            info += " • \(formatFileSize(size))"
-        }
-        
-        info += " • \(zoomState.zoomPercentage)%"
-        
-        return info
-    }
-    
-    /// Format file size for display
-    private func formatFileSize(_ bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useKB, .useMB, .useGB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
+        guard !cachedInfoBase.isEmpty else { return "" }
+        return "\(cachedInfoBase) • \(zoomState.zoomPercentage)%"
     }
     
     /// Update view size (for zoom calculations)

@@ -67,6 +67,15 @@ struct ImageFile: Codable, Identifiable, Equatable {
         }
         return size
     }
+
+    /// Get the file modification date from the filesystem
+    var fileModificationDate: Date? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+              let date = attributes[.modificationDate] as? Date else {
+            return nil
+        }
+        return date
+    }
     
     /// Get image dimensions
     var dimensions: CGSize? {

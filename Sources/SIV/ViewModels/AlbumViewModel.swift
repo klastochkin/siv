@@ -14,7 +14,8 @@ class AlbumViewModel: ObservableObject {
     @Published var lastClickedIndex: Int?
     @Published var viewMode: AlbumViewMode = .list
     @Published var showMissingFilesDialog: Bool = false
-    
+    @Published var metadata: [UUID: ImageMetadata] = [:]
+
     private var cancellables = Set<AnyCancellable>()
     
     init() {
@@ -27,12 +28,27 @@ class AlbumViewModel: ObservableObject {
     }
     
     func initialize() async {
-        print("🚀 AlbumViewModel: Initializing...")
+        log("🚀 AlbumViewModel: Initializing...")
         await albumManager.loadDefaultAlbum()
-        print("✅ AlbumViewModel: Loaded album with \(images.count) images")
+        log("✅ AlbumViewModel: Loaded album with \(images.count) images")
         
         if albumManager.hasMissingFiles {
             showMissingFilesDialog = true
+        }
+
+        loadMetadata(for: images)
+    }
+
+    /// Load metadata for the given images off the main thread and store results in `metadata`.
+    private func loadMetadata(for images: [ImageFile]) {
+        guard !images.isEmpty else { return }
+        Task.detached(priority: .utility) { [weak self] in
+            let result: [UUID: ImageMetadata] = images.reduce(into: [:]) { dict, image in
+                dict[image.id] = ImageMetadata.load(for: image)
+            }
+            await MainActor.run { [weak self] in
+                self?.metadata.merge(result) { _, new in new }
+            }
         }
     }
     
@@ -52,9 +68,12 @@ class AlbumViewModel: ObservableObject {
     
     func addImages(_ paths: [String]) async {
         let resolvedPaths = paths.flatMap { expandPath($0) }
-        print("📸 AlbumViewModel: Adding \(resolvedPaths.count) images to album (from \(paths.count) dropped items)")
+        log("📸 AlbumViewModel: Adding \(resolvedPaths.count) images to album (from \(paths.count) dropped items)")
         await albumManager.addImages(resolvedPaths)
-        print("✅ AlbumViewModel: Album now has \(images.count) images")
+        log("✅ AlbumViewModel: Album now has \(images.count) images")
+        // Load metadata for newly added images only
+        let newImages = images.filter { metadata[$0.id] == nil }
+        loadMetadata(for: newImages)
     }
     
     private func expandPath(_ path: String) -> [String] {
@@ -225,10 +244,10 @@ class AlbumViewModel: ObservableObject {
                 try fm.copyItem(at: sourceURL, to: destURL)
                 exported += 1
             } catch {
-                print("❌ Export failed for \(image.fileName): \(error.localizedDescription)")
+                log("❌ Export failed for \(image.fileName): \(error.localizedDescription)")
             }
         }
-        print("✅ Exported \(exported)/\(imagesToExport.count) images to \(destinationURL.path)")
+        log("✅ Exported \(exported)/\(imagesToExport.count) images to \(destinationURL.path)")
     }
     
     // MARK: - File Picker

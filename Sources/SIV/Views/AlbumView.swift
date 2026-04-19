@@ -15,6 +15,7 @@ struct AlbumView: View {
         }
         .onChange(of: viewModel.selectedIndices) { _ in
             if let image = viewModel.selectedImage {
+                log("🖼️ AlbumView: Selected \(image.fileName) (index \(viewModel.primarySelectedIndex ?? -1) of \(viewModel.images.count))")
                 imageViewModel.loadImage(from: image)
             }
         }
@@ -127,8 +128,9 @@ struct AlbumView: View {
         ScrollViewReader { proxy in
             List {
                 ForEach(Array(viewModel.images.enumerated()), id: \.element.id) { index, image in
+                    let meta = viewModel.metadata[image.id]
                     HStack {
-                        if !image.exists {
+                        if meta?.exists == false {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.red)
                         } else {
@@ -140,8 +142,14 @@ struct AlbumView: View {
                             Text(image.fileName)
                                 .font(.body)
                             
-                            if let dimensions = image.dimensions, let size = image.fileSize {
+                            if let dimensions = meta?.dimensions, let size = meta?.fileSize {
                                 Text("\(Int(dimensions.width))×\(Int(dimensions.height)) • \(formatFileSize(size))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            if let modDate = meta?.modificationDate {
+                                Text(formatDate(modDate))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -150,6 +158,9 @@ struct AlbumView: View {
                         Spacer()
                     }
                     .contentShape(Rectangle())
+                    .onTapGesture(count: 2) {
+                        openInPreview(image)
+                    }
                     .onTapGesture {
                         let flags = NSApp.currentEvent?.modifierFlags ?? []
                         viewModel.handleClick(
@@ -285,10 +296,11 @@ struct AlbumView: View {
     
     private func tooltipText(for image: ImageFile) -> String {
         var lines = [image.path]
-        if let dims = image.dimensions {
+        let meta = viewModel.metadata[image.id]
+        if let dims = meta?.dimensions {
             lines.append("\(Int(dims.width)) × \(Int(dims.height)) px")
         }
-        if let size = image.fileSize {
+        if let size = meta?.fileSize {
             lines.append(formatFileSize(size))
         }
         return lines.joined(separator: "\n")
@@ -321,10 +333,36 @@ struct AlbumView: View {
         }
     }
     
+    private static let fileSizeFormatter: ByteCountFormatter = {
+        let f = ByteCountFormatter()
+        f.allowedUnits = [.useKB, .useMB, .useGB]
+        f.countStyle = .file
+        return f
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f
+    }()
+
     private func formatFileSize(_ bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useKB, .useMB, .useGB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
+        Self.fileSizeFormatter.string(fromByteCount: bytes)
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        Self.dateFormatter.string(from: date)
+    }
+
+    private func openInPreview(_ image: ImageFile) {
+        guard image.exists else { return }
+        NSWorkspace.shared.open(
+            [URL(fileURLWithPath: image.path)],
+            withAppBundleIdentifier: "com.apple.Preview",
+            options: [],
+            additionalEventParamDescriptor: nil,
+            launchIdentifiers: nil
+        )
     }
 }

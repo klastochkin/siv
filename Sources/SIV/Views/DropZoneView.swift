@@ -31,14 +31,14 @@ class DropReceivingView: NSView {
     
     private func setupDragAndDrop() {
         registerForDraggedTypes([.fileURL])
-        print("✨ DropReceivingView: Registered for file URL drops")
+        log("✨ DropReceivingView: Registered for file URL drops")
     }
     
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        print("👋 DropReceivingView: Drag entered")
+        log("👋 DropReceivingView: Drag entered")
         
         guard let items = sender.draggingPasteboard.pasteboardItems else {
-            print("❌ DropReceivingView: No pasteboard items")
+            log("❌ DropReceivingView: No pasteboard items")
             return []
         }
         
@@ -49,13 +49,13 @@ class DropReceivingView: NSView {
                url.isFileURL {
                 let ext = url.pathExtension.lowercased()
                 if ["jpg", "jpeg", "png", "heic", "heif"].contains(ext) {
-                    print("✅ DropReceivingView: Valid image file detected: \(url.lastPathComponent)")
+                    log("✅ DropReceivingView: Valid image file detected: \(url.lastPathComponent)")
                     return .copy
                 }
             }
         }
         
-        print("⚠️ DropReceivingView: No valid image files")
+        log("⚠️ DropReceivingView: No valid image files")
         return []
     }
     
@@ -64,10 +64,10 @@ class DropReceivingView: NSView {
     }
     
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        print("🎯 DropReceivingView: performDragOperation called")
+        log("🎯 DropReceivingView: performDragOperation called")
         
         guard let items = sender.draggingPasteboard.pasteboardItems else {
-            print("❌ DropReceivingView: No pasteboard items")
+            log("❌ DropReceivingView: No pasteboard items")
             return false
         }
         
@@ -80,18 +80,18 @@ class DropReceivingView: NSView {
                 let ext = url.pathExtension.lowercased()
                 if ["jpg", "jpeg", "png", "heic", "heif"].contains(ext) {
                     urls.append(url)
-                    print("📁 DropReceivingView: Added URL: \(url.path)")
+                    log("📁 DropReceivingView: Added URL: \(url.path)")
                 }
             }
         }
         
         if !urls.isEmpty {
-            print("✅ DropReceivingView: Calling onDrop with \(urls.count) files")
+            log("✅ DropReceivingView: Calling onDrop with \(urls.count) files")
             onDrop?(urls)
             return true
         }
         
-        print("❌ DropReceivingView: No valid URLs to drop")
+        log("❌ DropReceivingView: No valid URLs to drop")
         return false
     }
 }
