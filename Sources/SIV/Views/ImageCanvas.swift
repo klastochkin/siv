@@ -9,6 +9,8 @@ struct ImageCanvas: View {
     @State private var lastMagnification: CGFloat = 1.0
     @State private var dragOffset: CGSize = .zero
     @State private var propertiesImageFile: ImageFile?
+    @State private var isResizing = false
+    @State private var resizeDebounceTask: Task<Void, Never>?
     
     var body: some View {
         GeometryReader { geometry in
@@ -38,7 +40,7 @@ struct ImageCanvas: View {
                     
                     Image(nsImage: image)
                         .resizable()
-                        .interpolation(.high)
+                        .interpolation(isResizing ? .none : .high)
                         .aspectRatio(imageAspectRatio, contentMode: .fill)
                         .frame(width: displayWidth, height: displayHeight)
                         .offset(viewModel.zoomState.offset)
@@ -117,6 +119,13 @@ struct ImageCanvas: View {
                 viewSize = newValue
                 viewModel.updateViewSize(newValue)
                 log("📐 ImageCanvas size changed - View: \(newValue)")
+                isResizing = true
+                resizeDebounceTask?.cancel()
+                resizeDebounceTask = Task {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    guard !Task.isCancelled else { return }
+                    isResizing = false
+                }
             }
             .onChange(of: viewModel.zoomState.scale) { newScale in
                 log("🔍 Zoom changed - Scale: \(newScale) (\(Int(newScale * 100))%)")
