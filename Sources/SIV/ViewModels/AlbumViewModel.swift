@@ -17,6 +17,7 @@ class AlbumViewModel: ObservableObject {
     @Published var showMissingFilesDialog: Bool = false
     @Published var metadata: [UUID: ImageMetadata] = [:]
     @Published var thumbnails: [UUID: NSImage] = [:]
+    @Published var thumbnailColumnCount: Int = 1
 
     private var cancellables = Set<AnyCancellable>()
     
@@ -195,6 +196,22 @@ class AlbumViewModel: ObservableObject {
         let prev = max(current - 1, 0)
         selectedIndices = [prev]
         lastClickedIndex = prev
+    }
+
+    /// Move up one grid row (thumbnail mode) or to the previous image (list mode).
+    func selectImageUp() {
+        guard !images.isEmpty else { return }
+        let current = lastClickedIndex ?? thumbnailColumnCount
+        let target = max(0, current - thumbnailColumnCount)
+        selectImage(at: target)
+    }
+
+    /// Move down one grid row (thumbnail mode) or to the next image (list mode).
+    func selectImageDown() {
+        guard !images.isEmpty else { return }
+        let current = lastClickedIndex ?? -1
+        let target = min(images.count - 1, current + thumbnailColumnCount)
+        selectImage(at: target)
     }
     
     // MARK: - Removal

@@ -188,7 +188,7 @@ struct AlbumView: View {
     }
     
     // MARK: - Thumbnail View
-    
+
     private var thumbnailView: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -238,6 +238,9 @@ struct AlbumView: View {
                         .task(id: image.id) {
                             await viewModel.loadThumbnail(for: image)
                         }
+                        .onTapGesture(count: 2) {
+                            openInPreview(image)
+                        }
                         .onTapGesture {
                             let flags = NSApp.currentEvent?.modifierFlags ?? []
                             viewModel.handleClick(
@@ -253,6 +256,11 @@ struct AlbumView: View {
                 }
                 .padding()
             }
+            .background(GeometryReader { geo in
+                Color.clear
+                    .onAppear { updateThumbnailColumnCount(width: geo.size.width) }
+                    .onChange(of: geo.size.width) { updateThumbnailColumnCount(width: $0) }
+            })
             .onChange(of: viewModel.lastClickedIndex) { newValue in
                 if let index = newValue, index < viewModel.images.count {
                     withAnimation { proxy.scrollTo(viewModel.images[index].id) }
@@ -358,8 +366,13 @@ struct AlbumView: View {
         Self.dateFormatter.string(from: date)
     }
 
-    private func openInPreview(_ image: ImageFile) {
-        guard image.exists else { return }
+    private func updateThumbnailColumnCount(width: CGFloat) {
+        // cell min 120 + spacing 16; subtract 32 for grid's own padding on both sides
+        let count = max(1, Int((width - 32 + 16) / (120 + 16)))
+        viewModel.thumbnailColumnCount = count
+    }
+
+    private func openInPreview(_ image: ImageFile) {        guard image.exists else { return }
         NSWorkspace.shared.open(
             [URL(fileURLWithPath: image.path)],
             withAppBundleIdentifier: "com.apple.Preview",
