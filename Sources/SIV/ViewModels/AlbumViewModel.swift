@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import ImageIO
 
 enum AlbumViewMode: String, CaseIterable {
     case thumbnails = "Thumbnails"
@@ -15,6 +16,7 @@ class AlbumViewModel: ObservableObject {
     @Published var viewMode: AlbumViewMode = .list
     @Published var showMissingFilesDialog: Bool = false
     @Published var metadata: [UUID: ImageMetadata] = [:]
+    @Published var thumbnails: [UUID: NSImage] = [:]
 
     private var cancellables = Set<AnyCancellable>()
     
@@ -50,6 +52,30 @@ class AlbumViewModel: ObservableObject {
                 self?.metadata.merge(result) { _, new in new }
             }
         }
+    }
+
+    /// Load and cache a 200 px thumbnail for one image on demand (called from the thumbnail grid cell).
+    func loadThumbnail(for image: ImageFile) async {
+        guard thumbnails[image.id] == nil else { return }
+        guard let thumb = await Task.detached(priority: .utility, operation: {
+            Self.makeThumbnail(for: image, maxPixelSize: 200)
+        }).value else { return }
+        thumbnails[image.id] = thumb
+    }
+
+    private static nonisolated func makeThumbnail(for image: ImageFile, maxPixelSize: Int) -> NSImage? {
+        let url = URL(fileURLWithPath: image.path) as CFURL
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: false
+        ]
+        guard let source = CGImageSourceCreateWithURL(url, nil),
+              let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        return NSImage(cgImage: cgThumb, size: NSSize(width: cgThumb.width, height: cgThumb.height))
     }
     
     var album: Album? {
