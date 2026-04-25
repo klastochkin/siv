@@ -196,8 +196,8 @@ struct AlbumView: View {
                     ForEach(Array(viewModel.images.enumerated()), id: \.element.id) { index, image in
                         VStack {
                             ZStack {
-                                if let nsImage = image.loadImage() {
-                                    Image(nsImage: nsImage)
+                                if let thumb = viewModel.thumbnails[image.id] {
+                                    Image(nsImage: thumb)
                                         .resizable()
                                         .aspectRatio(contentMode: .fit)
                                         .frame(width: 100, height: 100)
@@ -214,7 +214,7 @@ struct AlbumView: View {
                                         )
                                 }
                                 
-                                if !image.exists {
+                                if viewModel.metadata[image.id]?.exists == false {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.largeTitle)
                                         .foregroundColor(.red)
@@ -235,6 +235,9 @@ struct AlbumView: View {
                                 : Color.clear
                         )
                         .cornerRadius(8)
+                        .task(id: image.id) {
+                            await viewModel.loadThumbnail(for: image)
+                        }
                         .onTapGesture {
                             let flags = NSApp.currentEvent?.modifierFlags ?? []
                             viewModel.handleClick(
