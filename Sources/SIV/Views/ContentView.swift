@@ -21,9 +21,9 @@ struct ContentView: View {
                         .frame(minWidth: 200)
                         .background(Color(NSColor.windowBackgroundColor))
                         .border(focusedView == .album ? Color.accentColor : Color.clear, width: 2)
-                        .onTapGesture {
+                        .simultaneousGesture(TapGesture().onEnded {
                             focusedView = .album
-                        }
+                        })
                 }
                 
                 ImageCanvas(viewModel: imageViewModel, focusedView: $focusedView)
@@ -166,6 +166,8 @@ struct KeyboardShortcutHandler: View {
             Button("") {
                 if focusedView == .image {
                     imageViewModel.panUp()
+                } else if albumViewModel.viewMode == .thumbnails {
+                    albumViewModel.selectImageUp()
                 } else {
                     albumViewModel.selectPreviousImage()
                 }
@@ -177,6 +179,8 @@ struct KeyboardShortcutHandler: View {
             Button("") {
                 if focusedView == .image {
                     imageViewModel.panDown()
+                } else if albumViewModel.viewMode == .thumbnails {
+                    albumViewModel.selectImageDown()
                 } else {
                     albumViewModel.selectNextImage()
                 }
