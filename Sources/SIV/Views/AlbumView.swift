@@ -17,6 +17,8 @@ struct AlbumView: View {
             if let image = viewModel.selectedImage {
                 log("🖼️ AlbumView: Selected \(image.fileName) (index \(viewModel.primarySelectedIndex ?? -1) of \(viewModel.images.count))")
                 imageViewModel.loadImage(from: image)
+                // Prefetch ±2 neighbours in album order at full quality
+                imageViewModel.prefetchImages(viewModel.neighboringImages(radius: 2))
             }
         }
         .sheet(item: $propertiesImageFile) { imageFile in
