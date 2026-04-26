@@ -146,6 +146,19 @@ private func clampOffset() {
         self.viewSize = viewSize
         fitToWindow()
     }
+
+    /// Upgrade the reference image size when a higher-quality version of the same
+    /// image arrives. Adjusts scale proportionally so the visible region stays identical.
+    func upgradeImageSize(to newSize: CGSize) {
+        guard imageSize.width > 0, newSize.width > 0 else {
+            imageSize = newSize
+            return
+        }
+        let ratio = newSize.width / imageSize.width
+        imageSize = newSize
+        scale = max(Self.minZoom, min(Self.maxZoom, scale / ratio))
+        clampOffset()
+    }
     
     /// Update view size
     func updateViewSize(_ size: CGSize) {

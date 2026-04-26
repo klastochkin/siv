@@ -181,6 +181,20 @@ class AlbumViewModel: ObservableObject {
         selectedIndices = [index]
         lastClickedIndex = index
     }
+
+    /// Images adjacent to the current selection in album order, used for prefetch.
+    /// Excludes the currently selected image itself.
+    func neighboringImages(radius: Int) -> [ImageFile] {
+        guard let idx = primarySelectedIndex else { return [] }
+        var result: [ImageFile] = []
+        for offset in (-radius...radius) where offset != 0 {
+            let i = idx + offset
+            if i >= 0 && i < images.count {
+                result.append(images[i])
+            }
+        }
+        return result
+    }
     
     func selectNextImage() {
         guard !images.isEmpty else { return }

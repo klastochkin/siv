@@ -26,58 +26,93 @@ class ImageViewModel: ObservableObject {
         }
     }
     
-    /// Load an image from a file
+    /// Load an image from a file — two-stage progressive load:
+    ///   1. If full quality is cached → show instantly.
+    ///   2. Otherwise show 960 px preview first, then upgrade to full quality
+    ///      in the background. Zoom is initialised on stage 1 and adjusted
+    ///      proportionally when stage 2 arrives so the visible region is preserved.
     func loadImage(from imageFile: ImageFile) {
-        // Cancel previous loading task
         currentLoadTask?.cancel()
-        
+
         currentImageFile = imageFile
         cachedInfoBase = ""
         isLoading = true
         log("⏳ ImageViewModel: Start rendering \(imageFile.fileName)")
-        
+
         currentLoadTask = Task {
-            let image = await imageLoader.loadImage(from: imageFile.path)
-            
-            guard !Task.isCancelled else {
+            let path = imageFile.path
+
+            // ── Fast path: full quality already in cache (~15 ms) ───────────
+            if await imageLoader.isFullyCached(path: path) {
+                guard let full = await imageLoader.loadImage(from: path),
+                      !Task.isCancelled else {
+                    isLoading = false
+                    return
+                }
+                currentImage = full
                 isLoading = false
-                log("🚫 ImageViewModel: Rendering cancelled for \(imageFile.fileName)")
+                log("✅ ImageViewModel: Rendered from cache \(imageFile.fileName)")
+                zoomState.reset(imageSize: full.size, viewSize: zoomState.viewSize)
+                await buildInfoBase(path: path)
                 return
             }
-            
-            currentImage = image
-            isLoading = false
-            log("✅ ImageViewModel: Finished rendering \(imageFile.fileName)")
 
-            // Build the static portion of the info bar off the render path.
-            // These disk reads happen once per image load, not on every zoom/pan frame.
-            let path = imageFile.path
-            let infoBase = await Task.detached(priority: .userInitiated) {
-                var info = URL(fileURLWithPath: path).lastPathComponent
-                let url = URL(fileURLWithPath: path) as CFURL
-                if let source = CGImageSourceCreateWithURL(url, nil),
-                   let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-                   let w = props[kCGImagePropertyPixelWidth] as? CGFloat,
-                   let h = props[kCGImagePropertyPixelHeight] as? CGFloat {
-                    info += " • \(Int(w))×\(Int(h))"
-                }
-                if let attrs = try? FileManager.default.attributesOfItem(atPath: path),
-                   let size = attrs[.size] as? Int64 {
-                    let formatter = ByteCountFormatter()
-                    formatter.allowedUnits = [.useKB, .useMB, .useGB]
-                    formatter.countStyle = .file
-                    info += " • \(formatter.string(fromByteCount: size))"
-                }
-                return info
-            }.value
-            cachedInfoBase = infoBase
+            // ── Slow path: start preview + full in parallel ──────────────────
+            async let previewLoad = imageLoader.loadPreview(from: path)
+            async let fullLoad    = imageLoader.loadImage(from: path)
 
-            // Reset zoom state for new image
-            if let image = image {
-                let imageSize = image.size
-                zoomState.reset(imageSize: imageSize, viewSize: zoomState.viewSize)
+            // Stage 1 — show preview (~50–80 ms estimated)
+            if let preview = await previewLoad, !Task.isCancelled {
+                currentImage = preview
+                isLoading = false
+                log("⚡ ImageViewModel: Showing preview for \(imageFile.fileName)")
+                zoomState.reset(imageSize: preview.size, viewSize: zoomState.viewSize)
+            }
+
+            // Stage 2 — upgrade to full quality (~240 ms)
+            if let full = await fullLoad, !Task.isCancelled {
+                zoomState.upgradeImageSize(to: full.size)
+                currentImage = full
+                isLoading = false
+                log("✅ ImageViewModel: Upgraded to full quality \(imageFile.fileName)")
+            }
+
+            await buildInfoBase(path: path)
+        }
+    }
+
+    /// Start background Tier-2 prefetch for a list of images.
+    /// Uses detached tasks at background priority so they never compete with
+    /// foreground loads. Safe to call with duplicates — ImageLoader deduplicates.
+    func prefetchImages(_ files: [ImageFile]) {
+        let loader = imageLoader
+        for file in files {
+            Task.detached(priority: .background) {
+                await loader.prefetch(path: file.path)
             }
         }
+    }
+
+    private func buildInfoBase(path: String) async {
+        let info = await Task.detached(priority: .utility) {
+            var result = URL(fileURLWithPath: path).lastPathComponent
+            let url = URL(fileURLWithPath: path) as CFURL
+            if let source = CGImageSourceCreateWithURL(url, nil),
+               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+               let w = props[kCGImagePropertyPixelWidth] as? CGFloat,
+               let h = props[kCGImagePropertyPixelHeight] as? CGFloat {
+                result += " • \(Int(w))×\(Int(h))"
+            }
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+               let size = attrs[.size] as? Int64 {
+                let fmt = ByteCountFormatter()
+                fmt.allowedUnits = [.useKB, .useMB, .useGB]
+                fmt.countStyle = .file
+                result += " • \(fmt.string(fromByteCount: size))"
+            }
+            return result
+        }.value
+        cachedInfoBase = info
     }
     
     /// Open an image file via file picker
