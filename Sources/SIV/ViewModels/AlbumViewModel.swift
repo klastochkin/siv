@@ -266,6 +266,68 @@ class AlbumViewModel: ObservableObject {
         showMissingFilesDialog = false
     }
     
+    // MARK: - Delete & Undo
+
+    private var deleteUndoStack: [DeleteRecord] = []
+
+    /// Moves the primary selected image to the Trash and removes it from the album.
+    /// Returns the deletion record on success (caller should show a toast), nil on failure.
+    func deleteSelectedFile() async -> DeleteRecord? {
+        guard let index = primarySelectedIndex, index < images.count else { return nil }
+        let imageFile = images[index]
+        let originalURL = URL(fileURLWithPath: imageFile.path)
+
+        var trashedNSURL: NSURL?
+        do {
+            try FileManager.default.trashItem(at: originalURL, resultingItemURL: &trashedNSURL)
+        } catch {
+            log("❌ AlbumViewModel: Failed to trash \(imageFile.fileName): \(error)")
+            return nil
+        }
+        guard let trashed = trashedNSURL as URL? else { return nil }
+
+        let record = DeleteRecord(
+            originalPath: imageFile.path,
+            trashedURL: trashed,
+            albumIndex: index,
+            imageId: imageFile.id
+        )
+        deleteUndoStack.append(record)
+
+        metadata.removeValue(forKey: imageFile.id)
+        thumbnails.removeValue(forKey: imageFile.id)
+
+        await albumManager.removeImage(at: index)
+        adjustSelectionAfterRemoval(of: Set([index]))
+
+        log("🗑️ AlbumViewModel: Deleted \(imageFile.fileName) → \(trashed.path)")
+        return record
+    }
+
+    /// Restores the last deleted image from Trash and re-inserts it into the album.
+    /// Returns the file name on success, nil on failure or empty stack.
+    func undoLastDelete() async -> String? {
+        guard let record = deleteUndoStack.popLast() else { return nil }
+
+        let originalURL = URL(fileURLWithPath: record.originalPath)
+        do {
+            try FileManager.default.moveItem(at: record.trashedURL, to: originalURL)
+        } catch {
+            log("❌ AlbumViewModel: Failed to restore \(record.fileName): \(error)")
+            deleteUndoStack.append(record)
+            return nil
+        }
+
+        let imageFile = ImageFile(id: record.imageId, path: record.originalPath, lastModified: Date())
+        let insertIndex = min(record.albumIndex, images.count)
+        await albumManager.insertImage(imageFile, at: insertIndex)
+        loadMetadata(for: [imageFile])
+        selectImage(at: insertIndex)
+
+        log("♻️ AlbumViewModel: Restored \(record.fileName) at index \(insertIndex)")
+        return record.fileName
+    }
+
     // MARK: - Export
     
     func exportSelectedImages() {

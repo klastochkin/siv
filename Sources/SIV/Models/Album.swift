@@ -59,6 +59,14 @@ struct Album: Codable {
         }
     }
     
+    /// Insert an image at a specific position (used for undo of deletion).
+    mutating func insertImage(_ imageFile: ImageFile, at index: Int) {
+        guard !images.contains(where: { $0.path == imageFile.path }) else { return }
+        let safeIndex = max(0, min(index, images.count))
+        images.insert(imageFile, at: safeIndex)
+        modified = Date()
+    }
+
     /// Remove an image from the album
     mutating func removeImage(at index: Int) {
         guard index >= 0 && index < images.count else { return }
