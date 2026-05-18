@@ -4,7 +4,8 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var imageViewModel = ImageViewModel()
     @StateObject private var albumViewModel = AlbumViewModel()
-    
+    @StateObject private var toastManager = ToastManager()
+
     @State private var showAlbumView = true
     @State private var focusedView: FocusedViewType = .image
     
@@ -38,9 +39,12 @@ struct ContentView: View {
             KeyboardShortcutHandler(
                 imageViewModel: imageViewModel,
                 albumViewModel: albumViewModel,
+                toastManager: toastManager,
                 focusedView: $focusedView,
                 showAlbumView: $showAlbumView
             )
+
+            ToastOverlayView(manager: toastManager)
         }
         .task {
             await albumViewModel.initialize()
@@ -95,6 +99,7 @@ struct ContentView: View {
 struct KeyboardShortcutHandler: View {
     @ObservedObject var imageViewModel: ImageViewModel
     @ObservedObject var albumViewModel: AlbumViewModel
+    @ObservedObject var toastManager: ToastManager
     @Binding var focusedView: ContentView.FocusedViewType
     @Binding var showAlbumView: Bool
     
@@ -204,6 +209,31 @@ struct KeyboardShortcutHandler: View {
                 focusedView = focusedView == .image ? .album : .image
             }
             .keyboardShortcut(.tab, modifiers: [])
+            .opacity(0)
+            .frame(width: 0, height: 0)
+
+            // Delete - move selected file to Trash
+            Button("") {
+                guard focusedView == .album else { return }
+                Task {
+                    if let record = await albumViewModel.deleteSelectedFile() {
+                        toastManager.show("'\(record.fileName)' moved to Trash  —  ⌘Z to restore")
+                    }
+                }
+            }
+            .keyboardShortcut(.delete, modifiers: [])
+            .opacity(0)
+            .frame(width: 0, height: 0)
+
+            // Cmd+Z - undo last deletion
+            Button("") {
+                Task {
+                    if let fileName = await albumViewModel.undoLastDelete() {
+                        toastManager.show("'\(fileName)' restored")
+                    }
+                }
+            }
+            .keyboardShortcut("z", modifiers: .command)
             .opacity(0)
             .frame(width: 0, height: 0)
         }

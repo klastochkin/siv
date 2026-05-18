@@ -111,6 +111,15 @@ class AlbumManager: ObservableObject {
         await saveCurrentAlbum()
     }
     
+    /// Insert an image at a specific index (used for undo of deletion).
+    func insertImage(_ imageFile: ImageFile, at index: Int) async {
+        guard var album = await MainActor.run(body: { currentAlbum }) else { return }
+        album.insertImage(imageFile, at: index)
+        let updatedAlbum = album
+        await MainActor.run { currentAlbum = updatedAlbum }
+        await saveCurrentAlbum()
+    }
+
     /// Remove image from current album
     func removeImage(at index: Int) async {
         guard var album = await MainActor.run(body: { currentAlbum }) else { return }
