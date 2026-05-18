@@ -82,12 +82,12 @@ class ImageViewModel: ObservableObject {
     }
 
     /// Start background Tier-2 prefetch for a list of images.
-    /// Uses detached tasks at background priority so they never compete with
-    /// foreground loads. Safe to call with duplicates — ImageLoader deduplicates.
+    /// Uses .utility priority so the OS schedules prefetch tasks promptly
+    /// even while foreground decode work is running.
     func prefetchImages(_ files: [ImageFile]) {
         let loader = imageLoader
         for file in files {
-            Task.detached(priority: .background) {
+            Task.detached(priority: .utility) {
                 await loader.prefetch(path: file.path)
             }
         }

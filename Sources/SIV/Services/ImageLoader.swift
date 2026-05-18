@@ -47,12 +47,18 @@ actor ImageLoader {
         fullCache[path] != nil
     }
 
-    /// Load full-quality image (Tier 2). Cancels any in-flight load for this path.
+    /// Load full-quality image (Tier 2).
+    /// Joins any in-flight decode task for this path instead of cancelling it,
+    /// so a prefetch that started earlier is never discarded by a user selection.
     func loadImage(from path: String) async -> NSImage? {
         if let hit = lruGet(path, cache: &fullCache, order: &fullOrder) {
             return hit
         }
-        fullTasks[path]?.cancel()
+        // Reuse an existing in-flight task — avoids killing a prefetch that is
+        // already 90% done just because the user explicitly navigated to this image.
+        if let existing = fullTasks[path] {
+            return await existing.value
+        }
         let task = makeDecodeTask(path: path, dimension: Self.fullQualityDimension)
         fullTasks[path] = task
         let result = await task.value
