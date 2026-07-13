@@ -13,8 +13,8 @@ struct AlbumView: View {
             Divider()
             content
         }
-        .onChange(of: viewModel.selectedIndices) { _ in
-            if let image = viewModel.selectedImage {
+        .onChange(of: viewModel.selectedImage) { newImage in
+            if let image = newImage {
                 log("🖼️ AlbumView: Selected \(image.fileName) (index \(viewModel.primarySelectedIndex ?? -1) of \(viewModel.images.count))")
                 imageViewModel.loadImage(from: image)
                 // Prefetch ±2 neighbours in album order at full quality
