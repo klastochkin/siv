@@ -111,6 +111,15 @@ class AlbumManager: ObservableObject {
         await saveCurrentAlbum()
     }
     
+    /// Append a single image to the album in memory without persisting.
+    /// Used by batch import so the album count updates live; call `saveCurrentAlbum()` when done.
+    func appendImage(_ path: String) async {
+        guard var album = await MainActor.run(body: { currentAlbum }) else { return }
+        album.addImage(ImageFile(path: path))
+        let updatedAlbum = album
+        await MainActor.run { currentAlbum = updatedAlbum }
+    }
+
     /// Insert an image at a specific index (used for undo of deletion).
     func insertImage(_ imageFile: ImageFile, at index: Int) async {
         guard var album = await MainActor.run(body: { currentAlbum }) else { return }

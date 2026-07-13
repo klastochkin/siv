@@ -130,6 +130,22 @@ class AlbumViewModel: ObservableObject {
     func addImage(_ path: String) async {
         await addImages([path])
     }
+
+    // MARK: - Batch import (memory card)
+
+    /// Append one already-copied file to the album (no disk save) and load its metadata.
+    /// Used by the memory-card import flow so the count grows one-by-one.
+    func importCopiedFile(at path: String) async {
+        await albumManager.appendImage(path)
+        if let image = images.last(where: { $0.path == path }) {
+            loadMetadata(for: [image])
+        }
+    }
+
+    /// Persist the album once after a batch import completes.
+    func finishImport() async {
+        await albumManager.saveCurrentAlbum()
+    }
     
     // MARK: - Selection
     

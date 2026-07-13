@@ -123,10 +123,42 @@ actor ImageLoader {
 
     // MARK: - Private helpers
 
-    /// Create a non-isolated Task that decodes the image off the actor's executor.
+    /// Dedicated decode executor.
+    ///
+    /// CPU-bound decodes MUST run here rather than via `Task.detached`, because
+    /// `Task.detached` uses Swift's cooperative thread pool — the same pool this
+    /// `actor` needs for its own quick lookups (`isFullyCached`, `lruGet`). When
+    /// several 24 MP decodes saturate that pool, even a cache hit is stuck waiting
+    /// behind a ~2 s decode. Running decodes on a separate, concurrency-capped
+    /// queue keeps the actor responsive.
+    private static let decodeQueue: OperationQueue = {
+        let q = OperationQueue()
+        q.maxConcurrentOperationCount = max(1, min(2, ProcessInfo.processInfo.activeProcessorCount - 1))
+        q.qualityOfService = .userInitiated
+        return q
+    }()
+
+    /// Create a Task that decodes the image on the dedicated decode queue.
+    /// The `await` frees the actor immediately, so the heavy work never blocks it.
     private func makeDecodeTask(path: String, dimension: Int) -> Task<NSImage?, Never> {
-        Task.detached(priority: .userInitiated) {
-            ImageLoader.decode(path: path, maxDimension: dimension)
+        Task {
+            await ImageLoader.runDecode(path: path, maxDimension: dimension)
+        }
+    }
+
+    /// Run one decode on `decodeQueue`, bridged into async. Logs start/end so we can
+    /// verify decodes aren't overlapping cache-hit renders.
+    private static func runDecode(path: String, maxDimension: Int) async -> NSImage? {
+        await withCheckedContinuation { continuation in
+            decodeQueue.addOperation {
+                let name = URL(fileURLWithPath: path).lastPathComponent
+                let start = Date()
+                log("🧩 ImageLoader: decode START \(name) @\(maxDimension)px (running=\(decodeQueue.operationCount))")
+                let image = decode(path: path, maxDimension: maxDimension)
+                let ms = Int(Date().timeIntervalSince(start) * 1000)
+                log("🧩 ImageLoader: decode END   \(name) @\(maxDimension)px in \(ms)ms")
+                continuation.resume(returning: image)
+            }
         }
     }
 

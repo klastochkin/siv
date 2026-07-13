@@ -3,6 +3,8 @@ import SwiftUI
 struct AlbumView: View {
     @ObservedObject var viewModel: AlbumViewModel
     @ObservedObject var imageViewModel: ImageViewModel
+    @ObservedObject var memCardImport: MemCardImportViewModel
+    @Binding var showMemCardImport: Bool
     
     @State private var propertiesImageFile: ImageFile?
     @State private var showBatchTimestamp = false
@@ -15,7 +17,7 @@ struct AlbumView: View {
         }
         .onChange(of: viewModel.selectedImage) { newImage in
             if let image = newImage {
-                log("🖼️ AlbumView: Selected \(image.fileName) (index \(viewModel.primarySelectedIndex ?? -1) of \(viewModel.images.count))")
+                log("🖼️ AlbumView: [\(viewModel.viewMode.rawValue)] Selected \(image.fileName) (index \(viewModel.primarySelectedIndex ?? -1) of \(viewModel.images.count))")
                 imageViewModel.loadImage(from: image)
                 // Prefetch ±2 neighbours in album order at full quality
                 imageViewModel.prefetchImages(viewModel.neighboringImages(radius: 2))
@@ -50,6 +52,23 @@ struct AlbumView: View {
             Text("\(viewModel.images.count) images")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            if memCardImport.isCopying {
+                Button {
+                    showMemCardImport = true
+                } label: {
+                    HStack(spacing: 4) {
+                        ProgressView().controlSize(.mini)
+                        Text("copying \(memCardImport.progressPercent)%")
+                            .font(.caption)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.accentColor.opacity(0.18)))
+                }
+                .buttonStyle(.plain)
+                .help("Show import progress")
+            }
             
             if !viewModel.selectedIndices.isEmpty {
                 Text("(\(viewModel.selectedIndices.count) selected)")
@@ -127,56 +146,31 @@ struct AlbumView: View {
     // MARK: - List View
     
     private var listView: some View {
-        ScrollViewReader { proxy in
+        // Rows are an Equatable subview keyed on (image, meta), so a selection
+        // change no longer re-runs the expensive per-row formatting/tooltip work
+        // for all ~1600 rows — only the row background (cheap) updates.
+        let indexByID = Dictionary(
+            viewModel.images.enumerated().map { ($0.element.id, $0.offset) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return ScrollViewReader { proxy in
             List {
-                ForEach(Array(viewModel.images.enumerated()), id: \.element.id) { index, image in
-                    let meta = viewModel.metadata[image.id]
-                    HStack {
-                        if meta?.exists == false {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.red)
-                        } else {
-                            Image(systemName: "photo")
-                                .foregroundColor(.blue)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(image.fileName)
-                                .font(.body)
-                            
-                            if let dimensions = meta?.dimensions, let size = meta?.fileSize {
-                                Text("\(Int(dimensions.width))×\(Int(dimensions.height)) • \(formatFileSize(size))")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            if let modDate = meta?.modificationDate {
-                                Text(formatDate(modDate))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        
-                        Spacer()
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture(count: 2) {
-                        openInPreview(image)
-                    }
-                    .onTapGesture {
-                        let flags = NSApp.currentEvent?.modifierFlags ?? []
-                        viewModel.handleClick(
-                            at: index,
-                            cmd: flags.contains(.command),
-                            shift: flags.contains(.shift)
-                        )
-                    }
+                ForEach(viewModel.images) { image in
+                    let index = indexByID[image.id] ?? 0
+                    AlbumListRow(
+                        image: image,
+                        meta: viewModel.metadata[image.id],
+                        onClick: { cmd, shift in
+                            viewModel.handleClick(at: index, cmd: cmd, shift: shift)
+                        },
+                        onOpenPreview: { openInPreview(image) }
+                    )
+                    .equatable()
                     .listRowBackground(
                         viewModel.selectedIndices.contains(index)
                             ? Color.accentColor.opacity(0.2)
                             : Color.clear
                     )
-                    .help(tooltipText(for: image))
                     .contextMenu { imageContextMenu(for: index) }
                     .id(image.id)
                 }
@@ -353,19 +347,8 @@ struct AlbumView: View {
         return f
     }()
 
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .short
-        return f
-    }()
-
     private func formatFileSize(_ bytes: Int64) -> String {
         Self.fileSizeFormatter.string(fromByteCount: bytes)
-    }
-
-    private func formatDate(_ date: Date) -> String {
-        Self.dateFormatter.string(from: date)
     }
 
     private func updateThumbnailColumnCount(width: CGFloat) {
@@ -382,5 +365,86 @@ struct AlbumView: View {
             additionalEventParamDescriptor: nil,
             launchIdentifiers: nil
         )
+    }
+}
+
+/// A single album list row.
+///
+/// This is an `Equatable` view whose identity is `(image, meta)` only — it does
+/// NOT depend on selection. That way, changing the selected row does not force
+/// SwiftUI to re-run this body (and its slow `ByteCountFormatter`/`DateFormatter`
+/// work + tooltip build) for all ~1600 rows; the selection highlight is applied
+/// by the parent via `.listRowBackground`, which is cheap.
+private struct AlbumListRow: View, Equatable {
+    let image: ImageFile
+    let meta: ImageMetadata?
+    let onClick: (_ cmd: Bool, _ shift: Bool) -> Void
+    let onOpenPreview: () -> Void
+
+    static func == (lhs: AlbumListRow, rhs: AlbumListRow) -> Bool {
+        lhs.image == rhs.image && lhs.meta == rhs.meta
+    }
+
+    private static let fileSizeFormatter: ByteCountFormatter = {
+        let f = ByteCountFormatter()
+        f.allowedUnits = [.useKB, .useMB, .useGB]
+        f.countStyle = .file
+        return f
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f
+    }()
+
+    var body: some View {
+        HStack {
+            if meta?.exists == false {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.red)
+            } else {
+                Image(systemName: "photo")
+                    .foregroundColor(.blue)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(image.fileName)
+                    .font(.body)
+
+                if let dimensions = meta?.dimensions, let size = meta?.fileSize {
+                    Text("\(Int(dimensions.width))×\(Int(dimensions.height)) • \(Self.fileSizeFormatter.string(fromByteCount: size))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                if let modDate = meta?.modificationDate {
+                    Text(Self.dateFormatter.string(from: modDate))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { onOpenPreview() }
+        .onTapGesture {
+            let flags = NSApp.currentEvent?.modifierFlags ?? []
+            onClick(flags.contains(.command), flags.contains(.shift))
+        }
+        .help(tooltip)
+    }
+
+    private var tooltip: String {
+        var lines = [image.path]
+        if let dims = meta?.dimensions {
+            lines.append("\(Int(dims.width)) × \(Int(dims.height)) px")
+        }
+        if let size = meta?.fileSize {
+            lines.append(Self.fileSizeFormatter.string(fromByteCount: size))
+        }
+        return lines.joined(separator: "\n")
     }
 }

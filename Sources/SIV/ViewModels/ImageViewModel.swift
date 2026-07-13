@@ -17,6 +17,7 @@ class ImageViewModel: ObservableObject {
     
     private let imageLoader = ImageLoader()
     private var currentLoadTask: Task<Void, Never>?
+    private var prefetchTasks: [Task<Void, Never>] = []
     private var zoomStateCancellable: AnyCancellable?
     
     init() {
@@ -37,13 +38,19 @@ class ImageViewModel: ObservableObject {
         currentImageFile = imageFile
         cachedInfoBase = ""
         isLoading = true
+        let requestedAt = Date()
         log("⏳ ImageViewModel: Start rendering \(imageFile.fileName)")
 
         currentLoadTask = Task {
             let path = imageFile.path
+            let taskStartedMs = Int(Date().timeIntervalSince(requestedAt) * 1000)
+            log("⏱️ ImageViewModel: Task began after \(taskStartedMs)ms \(imageFile.fileName)")
 
             // ── Fast path: full quality already in cache (~15 ms) ───────────
-            if await imageLoader.isFullyCached(path: path) {
+            let cached = await imageLoader.isFullyCached(path: path)
+            let cacheCheckMs = Int(Date().timeIntervalSince(requestedAt) * 1000)
+            log("⏱️ ImageViewModel: cache check (\(cached ? "HIT" : "miss")) after \(cacheCheckMs)ms \(imageFile.fileName)")
+            if cached {
                 guard let full = await imageLoader.loadImage(from: path),
                       !Task.isCancelled else {
                     isLoading = false
@@ -85,11 +92,17 @@ class ImageViewModel: ObservableObject {
     /// Uses .utility priority so the OS schedules prefetch tasks promptly
     /// even while foreground decode work is running.
     func prefetchImages(_ files: [ImageFile]) {
+        // Cancel the previous batch so rapid navigation doesn't pile up stale prefetches.
+        prefetchTasks.forEach { $0.cancel() }
+        prefetchTasks.removeAll(keepingCapacity: true)
+
         let loader = imageLoader
         for file in files {
-            Task.detached(priority: .utility) {
+            let task = Task.detached(priority: .utility) {
+                guard !Task.isCancelled else { return }
                 await loader.prefetch(path: file.path)
             }
+            prefetchTasks.append(task)
         }
     }
 

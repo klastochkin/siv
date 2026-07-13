@@ -5,9 +5,11 @@ struct ContentView: View {
     @StateObject private var imageViewModel = ImageViewModel()
     @StateObject private var albumViewModel = AlbumViewModel()
     @StateObject private var toastManager = ToastManager()
+    @StateObject private var memCardImport = MemCardImportViewModel()
 
     @State private var showAlbumView = true
     @State private var focusedView: FocusedViewType = .image
+    @State private var showMemCardImport = false
     
     enum FocusedViewType {
         case image
@@ -18,7 +20,12 @@ struct ContentView: View {
         ZStack {
             HSplitView {
                 if showAlbumView {
-                    AlbumView(viewModel: albumViewModel, imageViewModel: imageViewModel)
+                    AlbumView(
+                        viewModel: albumViewModel,
+                        imageViewModel: imageViewModel,
+                        memCardImport: memCardImport,
+                        showMemCardImport: $showMemCardImport
+                    )
                         .frame(minWidth: 200)
                         .background(Color(NSColor.windowBackgroundColor))
                         .border(focusedView == .album ? Color.accentColor : Color.clear, width: 2)
@@ -91,6 +98,13 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .exportSelectedImages)) { _ in
             albumViewModel.exportSelectedImages()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .uploadFromMemCard)) { _ in
+            memCardImport.begin(album: albumViewModel)
+            showMemCardImport = true
+        }
+        .sheet(isPresented: $showMemCardImport) {
+            MemCardImportView(vm: memCardImport)
         }
     }
 }
