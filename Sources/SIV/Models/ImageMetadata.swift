@@ -3,7 +3,7 @@ import ImageIO
 
 /// Cached filesystem and image metadata for an ImageFile.
 /// Loaded once off the main thread; results stored in AlbumViewModel.metadata.
-struct ImageMetadata {
+struct ImageMetadata: Equatable {
     let exists: Bool
     let fileSize: Int64?
     let modificationDate: Date?

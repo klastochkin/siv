@@ -32,6 +32,12 @@ struct SIVCommands: Commands {
             Button("Add to Album...") {
                 NotificationCenter.default.post(name: .addImagesToAlbum, object: nil)
             }
+
+            Divider()
+
+            Button("Upload from Memory Card...") {
+                NotificationCenter.default.post(name: .uploadFromMemCard, object: nil)
+            }
         }
         
         // View menu
@@ -82,7 +88,11 @@ struct SIVCommands: Commands {
             Button("Add Images...") {
                 NotificationCenter.default.post(name: .addImagesToAlbum, object: nil)
             }
-            
+
+            Button("Upload from Memory Card...") {
+                NotificationCenter.default.post(name: .uploadFromMemCard, object: nil)
+            }
+
             Button("Export Selected...") {
                 NotificationCenter.default.post(name: .exportSelectedImages, object: nil)
             }
@@ -118,4 +128,5 @@ extension Notification.Name {
     static let nextImage = Notification.Name("nextImage")
     static let previousImage = Notification.Name("previousImage")
     static let exportSelectedImages = Notification.Name("exportSelectedImages")
+    static let uploadFromMemCard = Notification.Name("uploadFromMemCard")
 }
