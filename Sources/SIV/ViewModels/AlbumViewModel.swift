@@ -298,7 +298,15 @@ class AlbumViewModel: ObservableObject {
         thumbnails.removeValue(forKey: imageFile.id)
 
         await albumManager.removeImage(at: index)
-        adjustSelectionAfterRemoval(of: Set([index]))
+        // Don't call adjustSelectionAfterRemoval here — it would leave selection empty.
+        // Instead, land on the image that is now at the same slot (or the new last one).
+        if images.isEmpty {
+            selectedIndices = []
+            lastClickedIndex = nil
+        } else {
+            let newIndex = min(index, images.count - 1)
+            selectImage(at: newIndex)
+        }
 
         log("🗑️ AlbumViewModel: Deleted \(imageFile.fileName) → \(trashed.path)")
         return record
