@@ -39,6 +39,12 @@ mkdir -p "$RESOURCES_DIR"
 cp "$EXECUTABLE" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
 
+# Copy app icon if present
+if [ -f "$PROJECT_DIR/Resources/AppIcon.icns" ]; then
+    echo "Step 2b: Installing AppIcon.icns..."
+    cp "$PROJECT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+fi
+
 # Create Info.plist
 echo "Step 3: Creating Info.plist..."
 cat > "$CONTENTS_DIR/Info.plist" << EOF
@@ -50,6 +56,8 @@ cat > "$CONTENTS_DIR/Info.plist" << EOF
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>$APP_NAME</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.siv.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
