@@ -242,11 +242,16 @@ final class MemCardImportViewModel: ObservableObject {
         let fm = FileManager.default
         try? fm.createDirectory(at: destination, withIntermediateDirectories: true)
 
+        var firstImportedPath: String?
+
         for file in newFiles {
             let destURL = Self.uniqueDestination(for: file, in: destination, fm: fm)
             do {
                 try fm.copyItem(at: file, to: destURL)
                 await album.importCopiedFile(at: destURL.path)
+                if firstImportedPath == nil {
+                    firstImportedPath = destURL.path
+                }
                 copiedCount += 1
             } catch {
                 log("❌ MemCard: failed to copy \(file.lastPathComponent): \(error)")
@@ -254,6 +259,13 @@ final class MemCardImportViewModel: ObservableObject {
         }
 
         await album.finishImport()
+
+        if let path = firstImportedPath,
+           let index = album.images.firstIndex(where: { $0.path == path }) {
+            album.selectImage(at: index)
+            log("🎯 MemCard: Focused first import \(URL(fileURLWithPath: path).lastPathComponent) at index \(index)")
+        }
+
         phase = .finished
     }
 
