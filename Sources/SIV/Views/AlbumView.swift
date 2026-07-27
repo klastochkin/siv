@@ -275,6 +275,10 @@ struct AlbumView: View {
         Button("Properties...") {
             propertiesImageFile = image
         }
+
+        Button("Reveal in Finder") {
+            revealInFinder(image)
+        }
         
         Divider()
         
@@ -297,6 +301,12 @@ struct AlbumView: View {
                 Task { await viewModel.removeImage(at: index) }
             }
         }
+    }
+
+    private func revealInFinder(_ image: ImageFile) {
+        let url = URL(fileURLWithPath: image.path)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
     
     // MARK: - Helpers
