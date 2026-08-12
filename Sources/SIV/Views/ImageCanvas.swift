@@ -10,7 +10,12 @@ struct ImageCanvas: View {
     @State private var dragOffset: CGSize = .zero
     @State private var propertiesImageFile: ImageFile?
     @State private var isResizing = false
+    @State private var isPinching = false
     @State private var resizeDebounceTask: Task<Void, Never>?
+
+    /// Fast nearest-neighbor while the user is actively resizing/pinching (Preview-style);
+    /// high-quality resampling only when interaction settles.
+    private var useFastInterpolation: Bool { isResizing || isPinching }
     
     var body: some View {
         GeometryReader { geometry in
@@ -40,19 +45,21 @@ struct ImageCanvas: View {
                     
                     Image(nsImage: image)
                         .resizable()
-                        .interpolation(isResizing ? .none : .high)
+                        .interpolation(useFastInterpolation ? .none : .high)
                         .aspectRatio(imageAspectRatio, contentMode: .fill)
                         .frame(width: displayWidth, height: displayHeight)
                         .offset(viewModel.zoomState.offset)
                         .gesture(
                             MagnificationGesture()
                                 .onChanged { value in
+                                    if !isPinching { isPinching = true }
                                     let delta = value / lastMagnification
                                     viewModel.zoomState.applyPinchZoom(magnification: delta)
                                     lastMagnification = value
                                 }
                                 .onEnded { _ in
                                     lastMagnification = 1.0
+                                    isPinching = false
                                 }
                         )
                         .gesture(
@@ -128,6 +135,8 @@ struct ImageCanvas: View {
                 }
             }
             .onChange(of: viewModel.zoomState.scale) { newScale in
+                // Don't log during pinch — print I/O on every tick fights smooth zoom.
+                guard !isPinching else { return }
                 log("🔍 Zoom changed - Scale: \(newScale) (\(Int(newScale * 100))%)")
             }
             .onChange(of: viewModel.currentImage) { _ in
