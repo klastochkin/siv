@@ -34,6 +34,12 @@ A native macOS image viewer application built with Swift and SwiftUI, featuring 
 - Toggle Album/Image view visibility
 - Focus switching with Tab key
 
+#### Samsung TV (Tizen)
+- **Album → Publish to TV…** exports the album (thumbnails + 2560 px JPEGs, metadata stripped) and runs a read-only LAN server
+- `tv/` is the Tizen web app: thumbnail grid and fullscreen slideshow, driven by the TV remote
+- Headless: `SIV tv-publish --out DIR`, `SIV tv-serve --root DIR`
+- Setup, security and TV install steps: [docs/tizen-tv-design.md](docs/tizen-tv-design.md)
+
 ### Keyboard Shortcuts
 
 | Shortcut | Action |

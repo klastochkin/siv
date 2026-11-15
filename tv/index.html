@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1">
+  <title>SIV TV</title>
+  <link rel="stylesheet" href="css/app.css">
+  <script src="$WEBAPIS/webapis/webapis.js"></script>
+</head>
+<body>
+  <section id="screen-message" class="screen">
+    <div class="center">
+      <div id="message-spinner" class="spinner"></div>
+      <h1 id="message-text">Starting…</h1>
+      <p id="message-detail"></p>
+      <div id="message-buttons" class="buttons"></div>
+    </div>
+  </section>
+
+  <section id="screen-grid" class="screen">
+    <header id="toolbar">
+      <div class="title">
+        <span id="album-name"></span>
+        <span id="photo-count"></span>
+      </div>
+      <div class="actions">
+        <div class="button" data-action="slideshow">▶ Slideshow</div>
+        <div class="button" data-action="reload">⟳ Reload</div>
+        <div class="button" data-action="settings">⚙ Settings</div>
+      </div>
+    </header>
+    <div id="grid-viewport"><div id="grid"></div></div>
+    <footer class="hint">OK: open · ▶: slideshow · ▲ on top row: menu · Back: exit</footer>
+  </section>
+
+  <section id="screen-slideshow" class="screen">
+    <img id="slide-a" class="slide" alt="">
+    <img id="slide-b" class="slide" alt="">
+    <div id="slide-error" class="slide-error" style="display:none"></div>
+    <div id="slide-info" class="overlay">
+      <div class="overlay-text">
+        <span id="slide-title"></span>
+        <span id="slide-date"></span>
+      </div>
+      <div class="overlay-meta">
+        <span id="slide-state"></span>
+        <span id="slide-pos"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-settings" class="screen">
+    <div class="form">
+      <h1>Settings</h1>
+      <div id="field-url" class="field">
+        <label for="set-url">Photo server address</label>
+        <input id="set-url" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="192.168.1.50:8080">
+        <div class="field-hint">Shown in SIV on your Mac under Album → Publish to TV.</div>
+      </div>
+      <div id="field-token" class="field">
+        <label for="set-token">Access token (optional)</label>
+        <input id="set-token" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div id="field-interval" class="field">
+        <label>Slideshow interval</label>
+        <div class="stepper">◀ <span id="set-interval"></span> ▶</div>
+      </div>
+      <div class="buttons">
+        <div id="field-save" class="button">Save &amp; Connect</div>
+        <div id="field-cancel" class="button">Cancel</div>
+      </div>
+      <p id="settings-error" class="error"></p>
+      <p class="hint">▲▼ move · OK edit / select · ◀▶ change interval</p>
+    </div>
+  </section>
+
+  <script src="js/config.js"></script>
+  <script src="js/lib.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

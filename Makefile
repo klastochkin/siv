@@ -1,4 +1,4 @@
-.PHONY: all build clean test run install xcode help app run-app
+.PHONY: all build clean test run install xcode help app run-app tv-test tv-package tv-preview api-test test-all
 
 # Default target
 all: build
@@ -29,6 +29,26 @@ clean:
 test:
 	@echo "Running tests..."
 	swift test
+
+# TV app: logic unit tests (Node built-in runner, no npm install)
+tv-test:
+	node --test tv/test/*.test.js
+
+# TV app: package .wgt (signed when Tizen CLI is installed). Optional: SERVER=http://192.168.1.50:8080 TOKEN=...
+tv-package:
+	./tv/build.sh $(if $(SERVER),--server $(SERVER)) $(if $(TOKEN),--token $(TOKEN))
+
+# TV app: open in a desktop browser (arrow keys, Enter, Esc = Back)
+tv-preview:
+	@echo "Open http://localhost:8000 — point Settings at SIV's TV server"
+	cd tv && python3 -m http.server 8000 --bind 127.0.0.1
+
+# API contract test against a running library server: make api-test URL=http://192.168.1.50:8080 [TOKEN=...]
+api-test:
+	python3 scripts/tv_api_test.py --url $(URL) $(if $(TOKEN),--token $(TOKEN)) --all
+
+# Everything that runs without a TV
+test-all: test tv-test
 
 # Run the application (executable)
 run:
@@ -78,6 +98,11 @@ help:
 	@echo "  make clean    - Clean build artifacts"
 	@echo "  make test     - Run unit tests"
 	@echo "  make xcode    - Generate and open Xcode project"
+	@echo "  make tv-test  - Run TV app logic tests (Node)"
+	@echo "  make tv-package [SERVER=url TOKEN=t] - Build tv .wgt"
+	@echo "  make tv-preview - Serve TV app for a desktop browser"
+	@echo "  make api-test URL=http://ip:port [TOKEN=t] - API contract test"
+	@echo "  make test-all - Swift tests + TV logic tests"
 	@echo "  make help     - Show this help message"
 	@echo ""
 	@echo "To run as a normal macOS app with menu bar:"

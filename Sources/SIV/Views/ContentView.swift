@@ -6,6 +6,8 @@ struct ContentView: View {
     @StateObject private var albumViewModel = AlbumViewModel()
     @StateObject private var toastManager = ToastManager()
     @StateObject private var memCardImport = MemCardImportViewModel()
+    @StateObject private var tvPublish = TVPublishViewModel()
+    @State private var showTVPublish = false
 
     @State private var showAlbumView = true
     @State private var focusedView: FocusedViewType = .image
@@ -103,8 +105,18 @@ struct ContentView: View {
             memCardImport.begin(album: albumViewModel)
             showMemCardImport = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .showTVPublish)) { _ in
+            showTVPublish = true
+        }
         .sheet(isPresented: $showMemCardImport) {
             MemCardImportView(vm: memCardImport)
+        }
+        .sheet(isPresented: $showTVPublish) {
+            TVPublishView(
+                vm: tvPublish,
+                images: albumViewModel.images,
+                albumName: albumViewModel.albumManager.currentAlbum?.name ?? "Default"
+            )
         }
     }
 }

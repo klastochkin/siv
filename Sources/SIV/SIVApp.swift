@@ -1,6 +1,13 @@
 import SwiftUI
 
 @main
+enum SIVMain {
+    static func main() {
+        if TVCommandLine.runIfRequested() { return }
+        SIVApp.main()
+    }
+}
+
 struct SIVApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
@@ -97,6 +104,10 @@ struct SIVCommands: Commands {
                 NotificationCenter.default.post(name: .exportSelectedImages, object: nil)
             }
             .keyboardShortcut("e", modifiers: .command)
+
+            Button("Publish to TV...") {
+                NotificationCenter.default.post(name: .showTVPublish, object: nil)
+            }
             
             Divider()
             
@@ -129,4 +140,5 @@ extension Notification.Name {
     static let previousImage = Notification.Name("previousImage")
     static let exportSelectedImages = Notification.Name("exportSelectedImages")
     static let uploadFromMemCard = Notification.Name("uploadFromMemCard")
+    static let showTVPublish = Notification.Name("showTVPublish")
 }
