@@ -249,7 +249,7 @@ open -a Xcode
 #    File → New → Project → macOS → App
 #    Name: SIV
 #    Interface: SwiftUI
-#    Save to: /Users/klastochkin/prj/siv
+#    Save to: ~/path/to/siv
 
 # 3. Delete default ContentView.swift
 

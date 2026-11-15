@@ -19,7 +19,7 @@ Since this is a Swift/SwiftUI project, you'll need to create an Xcode project to
    - Storage: `None`
    - Include Tests: ✅ (checked)
 
-4. **Save to the project directory** (select the `/Users/klastochkin/prj/siv` folder)
+4. **Save to the project directory** (select the `~/path/to/siv` folder)
 
 5. **Add existing source files:**
    - Delete the default `SIVApp.swift` and `ContentView.swift` created by Xcode

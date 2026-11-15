@@ -434,7 +434,7 @@ This is separate from the product design. Two paths: **sideload for yourself** (
 
 ## A.2 Enable Developer Mode on the TV
 
-Verified on a 2024 Samsung 4K TV with the slim arrow-only Smart Remote (no digit keys, no `123` button). The code has to be typed **inside App Settings**; typing it on the Apps page itself does nothing.
+Works with the slim arrow-only Smart Remote (no digit keys, no `123` button) on recent models. The code has to be typed **inside App Settings**; typing it on the Apps page itself does nothing.
 
 1. On your phone, open **SmartThings**, select the TV, open its **remote**, and switch to the **`123`** number pad.
 2. On the TV, press **Home**, move to the **Apps** tab (`For You | Live | Apps`), scroll to the **bottom** of that page, and open **App Settings** (gear).

@@ -71,7 +71,7 @@ Total: ~950 lines of Swift code + 1400+ lines of documentation
    - Interface: SwiftUI
    - Language: Swift
    - Include Tests: ✅
-5. Save to: `/Users/klastochkin/prj/siv`
+5. Save to: `~/path/to/siv`
 6. Delete default `ContentView.swift`
 7. Add groups in Xcode matching folder structure
 8. Drag `SIV/` folder into Xcode project
