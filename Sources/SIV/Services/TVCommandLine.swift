@@ -3,11 +3,11 @@ import Foundation
 /// Headless entry points so the TV library can be published and served without the GUI
 /// (e.g. from a launchd agent):
 ///
-///     SIV tv-publish [--album PATH.sivalb] --out DIR
+///     SIV tv-publish [--album PATH.sivalb] [--size fullhd|original] --out DIR
 ///     SIV tv-serve --root DIR [--host IP|all] [--port 8080] [--token TOKEN]
 enum TVCommandLine {
     enum Command: Equatable {
-        case publish(album: String?, out: String)
+        case publish(album: String?, out: String, size: TVExportSize)
         case serve(root: String, host: String?, port: UInt16, token: String?)
         case help
     }
@@ -19,8 +19,9 @@ enum TVCommandLine {
 
     static let usage = """
     Usage:
-      SIV tv-publish [--album PATH.sivalb] --out DIR
+      SIV tv-publish [--album PATH.sivalb] [--size fullhd|original] --out DIR
           Export an album (default: your default album) as a TV library.
+          --size fullhd (default) fits 1920×1080 and sharpens; original keeps the source resolution.
       SIV tv-serve --root DIR [--host IP|all] [--port 8080] [--token TOKEN]
           Serve a TV library read-only. --host defaults to this Mac's LAN address.
     """
@@ -47,9 +48,16 @@ enum TVCommandLine {
 
         switch sub {
         case "tv-publish":
-            try take(["album", "out"])
+            try take(["album", "out", "size"])
             guard let out = options["out"] else { throw UsageError(message: "tv-publish needs --out DIR") }
-            return .publish(album: options["album"], out: out)
+            var size = TVExportSize.fullHD
+            if let raw = options["size"] {
+                guard let parsed = TVExportSize(rawValue: raw.lowercased()) else {
+                    throw UsageError(message: "Invalid size \(raw) (use fullhd or original)")
+                }
+                size = parsed
+            }
+            return .publish(album: options["album"], out: out, size: size)
         case "tv-serve":
             try take(["root", "host", "port", "token"])
             guard let root = options["root"] else { throw UsageError(message: "tv-serve needs --root DIR") }
@@ -93,12 +101,14 @@ enum TVCommandLine {
         case .help:
             print(usage)
             exit(0)
-        case .publish(let albumPath, let out):
+        case .publish(let albumPath, let out, let size):
             do {
                 let path = albumPath ?? AlbumManager().defaultAlbumPath
                 let album = try loadAlbum(at: path)
                 let root = URL(fileURLWithPath: out, isDirectory: true)
-                let report = try TVExportService.export(images: album.images, albumName: album.name, to: root)
+                let report = try TVExportService.export(
+                    images: album.images, albumName: album.name, to: root, options: .preset(size)
+                )
                 print("\(report.summary) → \(root.path)")
                 for failure in report.failed { print("  failed: \(failure.path): \(failure.reason)") }
                 for missing in report.missing { print("  missing: \(missing)") }

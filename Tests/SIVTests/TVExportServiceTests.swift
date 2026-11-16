@@ -6,7 +6,9 @@ import UniformTypeIdentifiers
 final class TVExportServiceTests: XCTestCase {
     private var sourceDir: URL!
     private var libraryDir: URL!
-    private let options = TVExportOptions(thumbMaxPixelSize: 64, fullMaxPixelSize: 256, jpegQuality: 0.8)
+    private let options = TVExportOptions(
+        thumbMaxPixelSize: 64, fullFitBox: TVPixelBox(width: 256, height: 256), sharpen: false, jpegQuality: 0.8
+    )
 
     override func setUp() {
         super.setUp()
@@ -257,11 +259,90 @@ final class TVExportServiceTests: XCTestCase {
         let images = [source("a.jpg", width: 800, height: 600)]
         try export(images)
         var bigger = options
-        bigger.fullMaxPixelSize = 512
+        bigger.fullFitBox = TVPixelBox(width: 512, height: 512)
         let report = try export(images, options: bigger)
         XCTAssertEqual(report.exported, 1)
         XCTAssertEqual(report.removed, 2)
         XCTAssertEqual(try TVTestSupport.readIndex(libraryDir).photos[0].width, 512)
+    }
+
+    // MARK: - Size presets
+
+    func testFitKeepsAspectRatioInsideBoxAndNeverUpscales() {
+        let box = TVExportOptions.fullHDBox
+        func fit(_ w: Int, _ h: Int) -> TVPixelBox { TVExportService.fit(TVPixelBox(width: w, height: h), in: box) }
+        XCTAssertEqual(fit(6000, 4000), TVPixelBox(width: 1620, height: 1080))   // 3:2
+        XCTAssertEqual(fit(4000, 3000), TVPixelBox(width: 1440, height: 1080))   // 4:3
+        XCTAssertEqual(fit(3840, 2160), TVPixelBox(width: 1920, height: 1080))   // 16:9
+        XCTAssertEqual(fit(4000, 6000), TVPixelBox(width: 720, height: 1080))    // portrait
+        XCTAssertEqual(fit(6000, 2000), TVPixelBox(width: 1920, height: 640))    // panorama
+        XCTAssertEqual(fit(800, 600), TVPixelBox(width: 800, height: 600))       // already small
+    }
+
+    func testFullHDPresetFitsInside1920x1080() throws {
+        try export(
+            [source("landscape.jpg", width: 2400, height: 1600), source("portrait.jpg", width: 1600, height: 2400)],
+            options: .preset(.fullHD)
+        )
+        let photos = try TVTestSupport.readIndex(libraryDir).photos
+        XCTAssertEqual(photos.map(\.width), [1620, 720])
+        XCTAssertEqual(photos.map(\.height), [1080, 1080])
+        let full = TVTestSupport.cgImage(at: libraryDir.appendingPathComponent(photos[0].full))!
+        XCTAssertEqual(full.width, 1620)
+        XCTAssertEqual(full.height, 1080)
+        XCTAssertEqual(full.colorSpace?.name, CGColorSpace.sRGB)
+        let thumb = TVTestSupport.cgImage(at: libraryDir.appendingPathComponent(photos[0].thumb))!
+        XCTAssertEqual(thumb.width, 480)
+    }
+
+    func testFullHDPresetAppliesOrientationBeforeFitting() throws {
+        // Stored 2400×1600 with orientation 6 displays as 1600×2400 portrait.
+        try export([source("rotated.jpg", width: 2400, height: 1600, orientation: 6)], options: .preset(.fullHD))
+        let photo = try TVTestSupport.readIndex(libraryDir).photos[0]
+        XCTAssertEqual(photo.width, 720)
+        XCTAssertEqual(photo.height, 1080)
+    }
+
+    func testOriginalPresetKeepsSourceResolutionAndStripsMetadata() throws {
+        try export([source("big.jpg", width: 2400, height: 1600, date: "2024:06:01 15:22:00", gps: true)], options: .preset(.original))
+        let photo = try TVTestSupport.readIndex(libraryDir).photos[0]
+        XCTAssertEqual(photo.width, 2400)
+        XCTAssertEqual(photo.height, 1600)
+        let props = TVTestSupport.properties(of: libraryDir.appendingPathComponent(photo.full))
+        XCTAssertNil(props[kCGImagePropertyGPSDictionary])
+        XCTAssertEqual(TVTestSupport.cgImage(at: libraryDir.appendingPathComponent(photo.thumb))?.width, 480)
+    }
+
+    func testSharpeningChangesPixelsButNotSizeOrColorSpace() throws {
+        let image = source("detail.jpg", width: 600, height: 400)
+        var plain = options
+        plain.fullFitBox = nil
+        var sharp = plain
+        sharp.sharpen = true
+
+        try export([image], options: plain)
+        let plainPhoto = try TVTestSupport.readIndex(libraryDir).photos[0]
+        let plainData = try Data(contentsOf: libraryDir.appendingPathComponent(plainPhoto.full))
+
+        try export([image], options: sharp)
+        let sharpPhoto = try TVTestSupport.readIndex(libraryDir).photos[0]
+        XCTAssertNotEqual(plainPhoto.id, sharpPhoto.id)
+        XCTAssertEqual(sharpPhoto.width, 600)
+        XCTAssertEqual(sharpPhoto.height, 400)
+        let sharpURL = libraryDir.appendingPathComponent(sharpPhoto.full)
+        XCTAssertNotEqual(try Data(contentsOf: sharpURL), plainData)
+        XCTAssertEqual(TVTestSupport.cgImage(at: sharpURL)?.colorSpace?.name, CGColorSpace.sRGB)
+    }
+
+    func testPresetsHaveDistinctProfileKeys() {
+        let fullHD = TVExportOptions.preset(.fullHD)
+        let original = TVExportOptions.preset(.original)
+        XCTAssertEqual(fullHD.fullFitBox, TVExportOptions.fullHDBox)
+        XCTAssertTrue(fullHD.sharpen)
+        XCTAssertNil(original.fullFitBox)
+        XCTAssertFalse(original.sharpen)
+        XCTAssertEqual(fullHD.profileKey, "v2-t480-f1920x1080-s1-q92")
+        XCTAssertEqual(original.profileKey, "v2-t480-forig-s0-q92")
     }
 
     // MARK: - Ids, progress, concurrency

@@ -16,6 +16,7 @@ final class TVPublishViewModel: ObservableObject {
         static let port = "tv.port"
         static let bindHost = "tv.bindHost"
         static let token = "tv.token"
+        static let exportSize = "tv.exportSize"
     }
 
     @Published var libraryPath: String { didSet { defaults.set(libraryPath, forKey: Keys.libraryPath) } }
@@ -23,6 +24,7 @@ final class TVPublishViewModel: ObservableObject {
     /// Empty string means all interfaces.
     @Published var bindHost: String { didSet { defaults.set(bindHost, forKey: Keys.bindHost) } }
     @Published var token: String { didSet { defaults.set(token, forKey: Keys.token) } }
+    @Published var exportSize: TVExportSize { didSet { defaults.set(exportSize.rawValue, forKey: Keys.exportSize) } }
 
     @Published private(set) var interfaces: [LANAddress.Interface] = []
     @Published private(set) var isPublishing = false
@@ -43,6 +45,7 @@ final class TVPublishViewModel: ObservableObject {
         let storedPort = defaults.integer(forKey: Keys.port)
         port = (1...65535).contains(storedPort) ? UInt16(storedPort) : TVServer.defaultPort
         token = defaults.string(forKey: Keys.token) ?? ""
+        exportSize = defaults.string(forKey: Keys.exportSize).flatMap(TVExportSize.init(rawValue:)) ?? .fullHD
         self.interfaces = interfaces
         bindHost = defaults.string(forKey: Keys.bindHost)
             ?? interfaces.first { LANAddress.isPrivateIPv4($0.address) }?.address
@@ -111,10 +114,11 @@ final class TVPublishViewModel: ObservableObject {
         progressDone = 0
         progressTotal = images.count
         let root = libraryURL
+        let options = TVExportOptions.preset(exportSize)
 
         let result: Result<TVExportReport, Error> = await Task.detached(priority: .userInitiated) {
             Result {
-                try TVExportService.export(images: images, albumName: albumName, to: root) { done, total in
+                try TVExportService.export(images: images, albumName: albumName, to: root, options: options) { done, total in
                     Task { @MainActor [weak self] in
                         guard let self, done > self.progressDone else { return }
                         self.progressDone = done

@@ -29,6 +29,7 @@ final class TVPublishViewModelTests: XCTestCase {
         XCTAssertEqual(vm.port, 8080)
         XCTAssertEqual(vm.bindHost, "192.168.1.50")
         XCTAssertEqual(vm.token, "")
+        XCTAssertEqual(vm.exportSize, .fullHD)
         XCTAssertEqual(vm.serverState, .stopped)
         XCTAssertNil(vm.serverURL)
         XCTAssertNil(vm.exposureWarning)
@@ -49,12 +50,19 @@ final class TVPublishViewModelTests: XCTestCase {
         vm.port = 9090
         vm.bindHost = ""
         vm.token = "abc"
+        vm.exportSize = .original
 
         let reloaded = makeVM()
         XCTAssertEqual(reloaded.libraryPath, workDir.path)
         XCTAssertEqual(reloaded.port, 9090)
         XCTAssertEqual(reloaded.bindHost, "")
         XCTAssertEqual(reloaded.token, "abc")
+        XCTAssertEqual(reloaded.exportSize, .original)
+    }
+
+    func testUnknownStoredExportSizeFallsBackToFullHD() {
+        defaults.set("8k", forKey: "tv.exportSize")
+        XCTAssertEqual(makeVM().exportSize, .fullHD)
     }
 
     func testInvalidStoredPortFallsBack() {
@@ -85,6 +93,24 @@ final class TVPublishViewModelTests: XCTestCase {
         XCTAssertEqual(vm.exposureWarning, "8.8.8.8 is not a private LAN address.")
         vm.bindHost = "127.0.0.1"
         XCTAssertEqual(vm.exposureWarning, "127.0.0.1 is only reachable from this Mac; the TV cannot connect.")
+    }
+
+    func testPublishUsesSelectedExportSize() async throws {
+        let src = workDir.appendingPathComponent("src", isDirectory: true)
+        try FileManager.default.createDirectory(at: src, withIntermediateDirectories: true)
+        let image = ImageFile(path: TVTestSupport.writeImage(to: src.appendingPathComponent("big.jpg"), width: 2400, height: 1600).path)
+        let vm = makeVM()
+        vm.libraryPath = workDir.appendingPathComponent("lib").path
+        let library = URL(fileURLWithPath: vm.libraryPath)
+
+        await vm.publish(images: [image], albumName: "A")
+        XCTAssertEqual(try TVTestSupport.readIndex(library).photos.map(\.width), [1620])
+
+        vm.exportSize = .original
+        await vm.publish(images: [image], albumName: "A")
+        XCTAssertEqual(vm.lastReport?.exported, 1)
+        XCTAssertEqual(vm.lastReport?.removed, 2)
+        XCTAssertEqual(try TVTestSupport.readIndex(library).photos.map(\.width), [2400])
     }
 
     func testPublishThenServeEndToEnd() async throws {

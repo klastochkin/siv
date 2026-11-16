@@ -105,7 +105,10 @@ struct ContentView: View {
             memCardImport.begin(album: albumViewModel)
             showMemCardImport = true
         }
-        .onReceive(NotificationCenter.default.publisher(for: .showTVPublish)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .showTVPublish)) { note in
+            if let raw = note.object as? String, let size = TVExportSize(rawValue: raw) {
+                tvPublish.exportSize = size
+            }
             showTVPublish = true
         }
         .sheet(isPresented: $showMemCardImport) {

@@ -36,7 +36,7 @@ struct TVPublishView: View {
             }
             .padding()
         }
-        .frame(width: 560, height: 660)
+        .frame(width: 560, height: 720)
         .onAppear {
             vm.refreshInterfaces()
             portText = String(vm.port)
@@ -60,6 +60,16 @@ struct TVPublishView: View {
                     NSWorkspace.shared.activateFileViewerSelecting([vm.libraryURL])
                 }
             }
+
+            Picker("Size", selection: $vm.exportSize) {
+                ForEach(TVExportSize.allCases) { size in
+                    Text(size.title).tag(size)
+                }
+            }
+            .disabled(vm.isPublishing)
+            Text(sizeHint)
+                .font(.caption)
+                .foregroundColor(.secondary)
 
             HStack {
                 Button(vm.isPublishing ? "Publishing…" : "Publish \(images.count) Photo(s)") {
@@ -87,6 +97,17 @@ struct TVPublishView: View {
                 Label(error, systemImage: "xmark.octagon").foregroundColor(.red)
             }
         }
+    }
+
+    private var sizeHint: String {
+        let base: String
+        switch vm.exportSize {
+        case .fullHD:
+            base = "Matches the TV app's 1080p canvas; sharpest result on Samsung TVs."
+        case .original:
+            base = "Full camera resolution; larger files and slower slideshow on the TV."
+        }
+        return base + " Switching size re-renders every photo on the next publish."
     }
 
     // MARK: - Server

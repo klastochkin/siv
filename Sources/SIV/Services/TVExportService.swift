@@ -2,17 +2,52 @@ import Foundation
 import CryptoKit
 import ImageIO
 import CoreGraphics
+import CoreImage
 import UniformTypeIdentifiers
 
+/// How large the published full-screen images are.
+enum TVExportSize: String, CaseIterable, Identifiable {
+    /// Fit inside 1920×1080 and sharpen: Samsung web apps render at 1080p on every model,
+    /// so pre-sizing on the Mac avoids a second, softer resize in the TV browser.
+    case fullHD = "fullhd"
+    /// Keep the source resolution (still re-encoded as sRGB JPEG without metadata).
+    case original
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .fullHD: return "Full HD (1920×1080, sharpened)"
+        case .original: return "Original Size"
+        }
+    }
+}
+
+struct TVPixelBox: Equatable {
+    var width: Int
+    var height: Int
+}
+
 struct TVExportOptions: Equatable {
+    static let fullHDBox = TVPixelBox(width: 1920, height: 1080)
+
     var thumbMaxPixelSize: Int = 480
-    /// Tizen web apps typically render at 1920×1080 even on 4K panels; 2560 leaves headroom.
-    var fullMaxPixelSize: Int = 2560
-    var jpegQuality: Double = 0.85
+    /// Box the full image is scaled to fit inside (never upscaled); nil keeps the source resolution.
+    var fullFitBox: TVPixelBox? = TVExportOptions.fullHDBox
+    var sharpen: Bool = true
+    var jpegQuality: Double = 0.92
+
+    static func preset(_ size: TVExportSize) -> TVExportOptions {
+        switch size {
+        case .fullHD: return TVExportOptions()
+        case .original: return TVExportOptions(fullFitBox: nil, sharpen: false)
+        }
+    }
 
     /// Part of every photo id, so changing output settings regenerates all files.
     var profileKey: String {
-        "v1-t\(thumbMaxPixelSize)-f\(fullMaxPixelSize)-q\(Int(jpegQuality * 100))"
+        let full = fullFitBox.map { "\($0.width)x\($0.height)" } ?? "orig"
+        return "v2-t\(thumbMaxPixelSize)-f\(full)-s\(sharpen ? 1 : 0)-q\(Int((jpegQuality * 100).rounded()))"
     }
 }
 
@@ -205,18 +240,23 @@ enum TVExportService {
         }
 
         guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: image.path) as CFURL, nil),
-              CGImageSourceGetCount(source) > 0 else {
+              CGImageSourceGetCount(source) > 0,
+              let sourceSize = orientedPixelSize(of: source) else {
             return .failed("Unreadable image")
         }
+        let target = options.fullFitBox.map { fit(sourceSize, in: $0) } ?? sourceSize
+        // Decode at up to 2× the target so the final high-quality resize has detail to work with.
+        let decodeLongEdge = min(max(sourceSize.width, sourceSize.height), 2 * max(target.width, target.height))
         let decodeOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: options.fullMaxPixelSize,
+            kCGImageSourceThumbnailMaxPixelSize: decodeLongEdge,
             kCGImageSourceShouldCacheImmediately: true
         ]
         guard let decoded = CGImageSourceCreateThumbnailAtIndex(source, 0, decodeOptions as CFDictionary),
-              let full = render(decoded, maxPixelSize: options.fullMaxPixelSize),
-              let thumb = render(full, maxPixelSize: options.thumbMaxPixelSize),
+              let resized = render(decoded, width: target.width, height: target.height),
+              let full = options.sharpen ? sharpened(resized) : resized,
+              let thumb = render(resized, maxPixelSize: options.thumbMaxPixelSize),
               let fullData = jpegData(full, quality: options.jpegQuality),
               let thumbData = jpegData(thumb, quality: options.jpegQuality) else {
             return .failed("Cannot decode or encode image")
@@ -243,12 +283,57 @@ enum TVExportService {
         return (width, height)
     }
 
+    /// Pixel size after applying EXIF orientation (orientations 5–8 swap width and height).
+    static func orientedPixelSize(of source: CGImageSource) -> TVPixelBox? {
+        guard let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = props[kCGImagePropertyPixelWidth] as? Int,
+              let height = props[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0 else {
+            return nil
+        }
+        let orientation = props[kCGImagePropertyOrientation] as? Int ?? 1
+        return (5...8).contains(orientation)
+            ? TVPixelBox(width: height, height: width)
+            : TVPixelBox(width: width, height: height)
+    }
+
+    /// Largest size with the same aspect ratio that fits inside `box` (never upscales).
+    static func fit(_ size: TVPixelBox, in box: TVPixelBox) -> TVPixelBox {
+        let scale = min(Double(box.width) / Double(size.width), Double(box.height) / Double(size.height), 1)
+        return TVPixelBox(
+            width: max(1, Int((Double(size.width) * scale).rounded())),
+            height: max(1, Int((Double(size.height) * scale).rounded()))
+        )
+    }
+
     /// Draws `image` into an 8-bit sRGB bitmap no larger than `maxPixelSize` on the long edge (never upscales).
     static func render(_ image: CGImage, maxPixelSize: Int) -> CGImage? {
-        let longEdge = max(image.width, image.height)
-        let scale = longEdge > maxPixelSize ? Double(maxPixelSize) / Double(longEdge) : 1
-        let width = max(1, Int((Double(image.width) * scale).rounded()))
-        let height = max(1, Int((Double(image.height) * scale).rounded()))
+        let size = fit(
+            TVPixelBox(width: image.width, height: image.height),
+            in: TVPixelBox(width: maxPixelSize, height: maxPixelSize)
+        )
+        return render(image, width: size.width, height: size.height)
+    }
+
+    private static let sharpenContext: CIContext = {
+        let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
+        return CIContext(options: [.workingColorSpace: srgb, .outputColorSpace: srgb, .cacheIntermediates: false])
+    }()
+
+    /// Light unsharp mask tuned for the TV's 2× upscale of 1080p app content.
+    static func sharpened(_ image: CGImage, radius: Double = 0.8, intensity: Double = 0.35) -> CGImage? {
+        let input = CIImage(cgImage: image)
+        guard let filter = CIFilter(name: "CIUnsharpMask"),
+              let srgb = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        filter.setValue(input.clampedToExtent(), forKey: kCIInputImageKey)
+        filter.setValue(radius, forKey: kCIInputRadiusKey)
+        filter.setValue(intensity, forKey: kCIInputIntensityKey)
+        guard let output = filter.outputImage?.cropped(to: input.extent) else { return nil }
+        return sharpenContext.createCGImage(output, from: input.extent, format: .RGBA8, colorSpace: srgb)
+    }
+
+    /// Draws `image` into an 8-bit sRGB bitmap of exactly `width`×`height`.
+    static func render(_ image: CGImage, width: Int, height: Int) -> CGImage? {
         guard let srgb = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(
                 data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,

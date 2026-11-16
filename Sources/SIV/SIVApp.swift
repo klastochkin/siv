@@ -105,8 +105,12 @@ struct SIVCommands: Commands {
             }
             .keyboardShortcut("e", modifiers: .command)
 
-            Button("Publish to TV...") {
-                NotificationCenter.default.post(name: .showTVPublish, object: nil)
+            Menu("Publish to TV") {
+                ForEach(TVExportSize.allCases) { size in
+                    Button("\(size.title)...") {
+                        NotificationCenter.default.post(name: .showTVPublish, object: size.rawValue)
+                    }
+                }
             }
             
             Divider()

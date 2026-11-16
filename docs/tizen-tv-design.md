@@ -557,12 +557,17 @@ SIV writes a **dedicated folder** (default `~/SIV-TV-Library`; never point it at
 ~/SIV-TV-Library/
   index.json
   thumbs/<id>.jpg     # 480 px long edge
-  full/<id>.jpg       # 2560 px long edge, sRGB, orientation applied, no EXIF/GPS
+  full/<id>.jpg       # fitted to 1920×1080 (or original size), sRGB, orientation applied, no EXIF/GPS
 ```
 
 ## B.4 Publish and serve with SIV (recommended)
 
-**In the app:** **Album → Publish to TV…**
+**In the app:** **Album → Publish to TV ▸ Full HD (1920×1080, sharpened)** or **▸ Original Size** (also switchable via **Size** in the sheet).
+
+- **Full HD** — fits each photo inside 1920×1080 (3:2 → 1620×1080, portrait → 720×1080; never upscales) with a light unsharp mask. Matches the TV's 1080p web canvas, so the TV does no downscaling of its own; recommended.
+- **Original Size** — keeps the source resolution, no sharpening (much larger files; the TV still shrinks them to 1080p).
+
+Switching size changes the output profile, so the next publish re-renders every photo and prunes the old files.
 
 1. **Publish N Photo(s)** — exports the album; re-publishing only processes new/changed photos and prunes removed ones.
 2. **Listen on** — pick your LAN address (default: first private IPv4, e.g. `192.168.1.50 (en0)`).
@@ -576,6 +581,7 @@ The server keeps running after you close the sheet, until you stop it or quit SI
 ```bash
 SIV=.build/release/SIV.app/Contents/MacOS/SIV        # after `make app`
 $SIV tv-publish --out ~/SIV-TV-Library                 # default album; or --album PATH.sivalb
+$SIV tv-publish --out ~/SIV-TV-Library --size original # default --size fullhd
 $SIV tv-serve --root ~/SIV-TV-Library --port 8080      # binds the LAN address; --host all to override
 $SIV tv-serve --root ~/SIV-TV-Library --token "$(openssl rand -hex 12)"
 ```
@@ -641,11 +647,11 @@ Variant A is implemented end to end. Variants B/C reuse the same `index.json` co
 | Index model | `Sources/SIV/Models/TVLibraryIndex.swift` |
 | Export / incremental sync | `Sources/SIV/Services/TVExportService.swift` — ids = hash(path, size, mtime, output profile); unchanged photos are skipped, removed/changed ones pruned after the new index is written; outputs are sRGB JPEG with orientation applied and **all metadata stripped** |
 | LAN server | `Sources/SIV/Services/TVServer.swift` + `TVHTTPHandler.swift` — GET/HEAD/OPTIONS only, CORS `*`, no listings, no dotfiles, only `.json/.jpg/.jpeg/.png/.webp`, symlink/traversal-safe, optional token (`?token=` or `Authorization: Bearer`), 16 KB header cap, 10 s request timeout |
-| Mac UI | **Album → Publish to TV…** (`Views/TVPublishView.swift`, `ViewModels/TVPublishViewModel.swift`) |
+| Mac UI | **Album → Publish to TV ▸ Full HD / Original Size** (`Views/TVPublishView.swift`, `ViewModels/TVPublishViewModel.swift`) |
 | Headless CLI | `SIV tv-publish`, `SIV tv-serve` (`Services/TVCommandLine.swift`) |
 | TV app | `tv/` — ES5 HTML/CSS/JS for older Tizen; `js/lib.js` pure logic, `js/app.js` UI; `tv/build.sh` packages `.wgt` |
 
-**Output sizes:** thumbs 480 px, full 2560 px long edge (≈1 MB per 24 MP photo; 40-photo sample = 43 MB). First publish ≈0.1 s/photo on Apple silicon; re-publish with no changes is instant.
+**Output sizes:** thumbs 480 px; full Full HD ≈0.5 MB per photo (1,877 photos ≈ 1.0 GB), Original roughly the source JPEG size. First publish ≈0.07 s/photo on Apple silicon; re-publish with no changes is instant.
 
 ### Tests
 

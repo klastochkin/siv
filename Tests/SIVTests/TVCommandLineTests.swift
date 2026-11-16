@@ -9,11 +9,23 @@ final class TVCommandLineTests: XCTestCase {
     }
 
     func testPublish() throws {
-        XCTAssertEqual(try TVCommandLine.parse(["tv-publish", "--out", "/tmp/lib"]), .publish(album: nil, out: "/tmp/lib"))
+        XCTAssertEqual(
+            try TVCommandLine.parse(["tv-publish", "--out", "/tmp/lib"]),
+            .publish(album: nil, out: "/tmp/lib", size: .fullHD)
+        )
         XCTAssertEqual(
             try TVCommandLine.parse(["tv-publish", "--album", "/a.sivalb", "--out", "/tmp/lib"]),
-            .publish(album: "/a.sivalb", out: "/tmp/lib")
+            .publish(album: "/a.sivalb", out: "/tmp/lib", size: .fullHD)
         )
+        XCTAssertEqual(
+            try TVCommandLine.parse(["tv-publish", "--size", "original", "--out", "/tmp/lib"]),
+            .publish(album: nil, out: "/tmp/lib", size: .original)
+        )
+        XCTAssertEqual(
+            try TVCommandLine.parse(["tv-publish", "--size", "FullHD", "--out", "/tmp/lib"]),
+            .publish(album: nil, out: "/tmp/lib", size: .fullHD)
+        )
+        XCTAssertThrowsError(try TVCommandLine.parse(["tv-publish", "--size", "4k", "--out", "/tmp/lib"]))
         XCTAssertThrowsError(try TVCommandLine.parse(["tv-publish"]))
         XCTAssertThrowsError(try TVCommandLine.parse(["tv-publish", "--out"]))
         XCTAssertThrowsError(try TVCommandLine.parse(["tv-publish", "--out", "/x", "--port", "1"]))
